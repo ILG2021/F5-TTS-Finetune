@@ -31,6 +31,7 @@ from scipy.io import wavfile
 from f5_tts.api import F5TTS
 from f5_tts.infer.utils_infer import transcribe
 from f5_tts.model.utils import convert_char_to_pinyin
+from third_party.adma.preprocess import extract_ssl_features
 
 training_process = None
 system = platform.system()
@@ -77,6 +78,7 @@ def save_settings(
         mixed_precision,
         logger,
         ch_8bit_adam,
+        ch_use_adma
 ):
     path_project = os.path.join(path_project_ckpts, project_name)
     os.makedirs(path_project, exist_ok=True)
@@ -102,6 +104,7 @@ def save_settings(
         "mixed_precision": mixed_precision,
         "logger": logger,
         "bnb_optimizer": ch_8bit_adam,
+        "use_adma": ch_use_adma
     }
     with open(file_setting, "w") as f:
         json.dump(settings, f, indent=4)
@@ -135,6 +138,7 @@ def load_settings(project_name):
         "mixed_precision": "fp16",
         "logger": "none",
         "bnb_optimizer": False,
+        "use_adma": False
     }
     if device == "mps":
         default_settings["mixed_precision"] = "none"
@@ -166,6 +170,7 @@ def load_settings(project_name):
         default_settings["mixed_precision"],
         default_settings["logger"],
         default_settings["bnb_optimizer"],
+        default_settings["use_adma"]
     )
 
 
@@ -377,6 +382,7 @@ def start_training(
         stream,
         logger,
         ch_8bit_adam,
+        ch_use_adma
 ):
     global training_process, tts_api, stop_signal
 
@@ -460,6 +466,9 @@ def start_training(
 
     if ch_8bit_adam:
         cmd += " --bnb_optimizer"
+    
+    if ch_use_adma:
+        cmd += " --use_adma"
 
     print("run command : \n" + cmd + "\n")
 
@@ -484,6 +493,7 @@ def start_training(
         mixed_precision,
         logger,
         ch_8bit_adam,
+        ch_use_adma
     )
 
     try:
@@ -757,7 +767,7 @@ def get_correct_audio_path(
     return file_audio
 
 
-def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
+def create_metadata(name_project, ch_tokenizer, ch_use_adma, progress=gr.Progress()):
     path_project = os.path.join(path_data, name_project)
     path_project_wavs = os.path.join(path_project, "wavs")
     file_metadata = os.path.join(path_project, "metadata.csv")
@@ -861,6 +871,8 @@ def create_metadata(name_project, ch_tokenizer, progress=gr.Progress()):
     else:
         error_text = ""
 
+    if ch_use_adma:
+        extract_ssl_features(path_project)
     return (
         f"prepare complete \nsamples : {len(text_list)}\ntime data : {format_seconds_to_hms(lenght)}\nmin sec : {min_second}\nmax sec : {max_second}\nfile_arrow : {file_raw}\nvocab : {vocab_size}\n{error_text}",
         new_vocal,
@@ -1504,9 +1516,11 @@ Using the extended model, you can finetune to a new language that is missing sym
             )
 
         with gr.TabItem("Prepare Data"):
-            gr.Markdown("""```plaintext 
-Skip this step if you have your dataset, raw.arrow, duration.json, and vocab.txt
-```""")
+            with gr.Row():
+                ch_use_adma = gr.Checkbox(label="启用A-DMA", value=False)
+                gr.Markdown("""```plaintext 
+        Skip this step if you have your dataset, raw.arrow, duration.json, and vocab.txt
+        ```""")
 
             gr.Markdown(
                 """```plaintext    
@@ -1539,12 +1553,12 @@ Skip this step if you have your dataset, raw.arrow, duration.json, and vocab.txt
             txt_vocab_prepare = gr.Textbox(label="Vocab", value="")
 
             bt_prepare.click(
-                fn=create_metadata, inputs=[cm_project, ch_tokenizern], outputs=[txt_info_prepare, txt_vocab_prepare]
+                fn=create_metadata, inputs=[cm_project, ch_tokenizern, ch_use_adma], outputs=[txt_info_prepare, txt_vocab_prepare]
             )
 
             random_sample_prepare = gr.Button("Random Sample")
 
-            with gr.Row():
+            with gr.Row(equal_height=True):
                 random_text_prepare = gr.Textbox(label="Tokenizer")
                 random_audio_prepare = gr.Audio(label="Audio", type="filepath")
 
@@ -1607,8 +1621,9 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             with gr.Row():
                 ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")
-                mixed_precision = gr.Radio(label="Mixed Precision", choices=["none", "fp16", "bf16"])
-                cd_logger = gr.Radio(label="Logger", choices=["none", "wandb", "tensorboard"])
+                ch_use_adma = gr.Checkbox(label="启动A-DMA")
+                mixed_precision = gr.Radio(label="Mixed Precision", choices=["none", "fp16", "bf16"], default="fp16")
+                cd_logger = gr.Radio(label="Logger", choices=["none", "wandb", "tensorboard"], default="tensorboard")
                 with gr.Column():
                     start_button = gr.Button("Start Training")
                     stop_button = gr.Button("Stop Training", interactive=False)
@@ -1634,6 +1649,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     mixed_precision_value,
                     logger_value,
                     bnb_optimizer_value,
+                    ch_use_adma_value
                 ) = load_settings(projects_selelect)
 
                 # Assigning values to the respective components
@@ -1656,6 +1672,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 mixed_precision.value = mixed_precision_value
                 cd_logger.value = logger_value
                 ch_8bit_adam.value = bnb_optimizer_value
+                ch_use_adma = ch_use_adma_value
 
             ch_stream = gr.Checkbox(label="Stream Output Experiment", value=True)
             txt_info_train = gr.Textbox(label="Info", value="")
@@ -1716,6 +1733,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     ch_stream,
                     cd_logger,
                     ch_8bit_adam,
+                    ch_use_adma
                 ],
                 outputs=[txt_info_train, start_button, stop_button],
             )
@@ -1769,6 +1787,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     mixed_precision,
                     cd_logger,
                     ch_8bit_adam,
+                    ch_use_adma
                 ]
                 return output_components
 

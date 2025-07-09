@@ -8,7 +8,9 @@ from cached_path import cached_path
 from f5_tts.model import CFM, DiT, Trainer, UNetT
 from f5_tts.model.dataset import load_dataset
 from f5_tts.model.utils import get_tokenizer
-
+from third_party.adma import CFM_ADMA
+from third_party.adma.dataset_adma import load_dataset_adma
+from third_party.adma.trainer_adma import ADMATrainer
 
 # -------------------------- Dataset Settings --------------------------- #
 target_sample_rate = 24000
@@ -70,6 +72,11 @@ def parse_args():
         "--bnb_optimizer",
         action="store_true",
         help="Use 8-bit Adam optimizer from bitsandbytes",
+    )
+    parser.add_argument(
+        "--use_adma",
+        action="store_true",
+        help="Use A-DMA to accelerate training",
     )
 
     return parser.parse_args()
@@ -179,36 +186,71 @@ def main():
         mel_spec_type=mel_spec_type,
     )
 
-    model = CFM(
-        transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
-        mel_spec_kwargs=mel_spec_kwargs,
-        vocab_char_map=vocab_char_map,
-    )
+    if args.use_adma:
+        model = CFM_ADMA(
+            transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
+            mel_spec_kwargs=mel_spec_kwargs,
+            vocab_char_map=vocab_char_map,
+        )
+        trainer = ADMATrainer(
+            model,
+            args.epochs,
+            args.learning_rate,
+            num_warmup_updates=args.num_warmup_updates,
+            save_per_updates=args.save_per_updates,
+            keep_last_n_checkpoints=args.keep_last_n_checkpoints,
+            checkpoint_path=checkpoint_path,
+            batch_size_per_gpu=args.batch_size_per_gpu,
+            batch_size_type=args.batch_size_type,
+            max_samples=args.max_samples,
+            grad_accumulation_steps=args.grad_accumulation_steps,
+            max_grad_norm=args.max_grad_norm,
+            logger=args.logger,
+            wandb_project=args.dataset_name,
+            wandb_run_name=args.exp_name,
+            wandb_resume_id=wandb_resume_id,
+            log_samples=args.log_samples,
+            last_per_updates=args.last_per_updates,
+            bnb_optimizer=args.bnb_optimizer,
+            mel_spec_type=mel_spec_type
+        )
+        train_dataset = load_dataset_adma(
+            args.dataset_name,
+            tokenizer,
+            dataset_type="CustomDatasetADMA",
+            mel_spec_kwargs=mel_spec_kwargs,
+        )
+    else:
+        model = CFM(
+            transformer=model_cls(**model_cfg, text_num_embeds=vocab_size, mel_dim=n_mel_channels),
+            mel_spec_kwargs=mel_spec_kwargs,
+            vocab_char_map=vocab_char_map,
+        )
 
-    trainer = Trainer(
-        model,
-        args.epochs,
-        args.learning_rate,
-        num_warmup_updates=args.num_warmup_updates,
-        save_per_updates=args.save_per_updates,
-        keep_last_n_checkpoints=args.keep_last_n_checkpoints,
-        checkpoint_path=checkpoint_path,
-        batch_size_per_gpu=args.batch_size_per_gpu,
-        batch_size_type=args.batch_size_type,
-        max_samples=args.max_samples,
-        grad_accumulation_steps=args.grad_accumulation_steps,
-        max_grad_norm=args.max_grad_norm,
-        logger=args.logger,
-        wandb_project=args.dataset_name,
-        wandb_run_name=args.exp_name,
-        wandb_resume_id=wandb_resume_id,
-        log_samples=args.log_samples,
-        last_per_updates=args.last_per_updates,
-        bnb_optimizer=args.bnb_optimizer,
-        mel_spec_type=mel_spec_type
-    )
+        trainer = Trainer(
+            model,
+            args.epochs,
+            args.learning_rate,
+            num_warmup_updates=args.num_warmup_updates,
+            save_per_updates=args.save_per_updates,
+            keep_last_n_checkpoints=args.keep_last_n_checkpoints,
+            checkpoint_path=checkpoint_path,
+            batch_size_per_gpu=args.batch_size_per_gpu,
+            batch_size_type=args.batch_size_type,
+            max_samples=args.max_samples,
+            grad_accumulation_steps=args.grad_accumulation_steps,
+            max_grad_norm=args.max_grad_norm,
+            logger=args.logger,
+            wandb_project=args.dataset_name,
+            wandb_run_name=args.exp_name,
+            wandb_resume_id=wandb_resume_id,
+            log_samples=args.log_samples,
+            last_per_updates=args.last_per_updates,
+            bnb_optimizer=args.bnb_optimizer,
+            mel_spec_type=mel_spec_type
+        )
 
-    train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
+        train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)
 
     trainer.train(
         train_dataset,
