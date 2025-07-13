@@ -4,6 +4,9 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
+import ctranslate2
+import huggingface_hub
+from faster_whisper import WhisperModel
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
 sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/../../third_party/BigVGAN/")
@@ -14,7 +17,6 @@ import tempfile
 from importlib.resources import files
 
 import matplotlib
-
 
 matplotlib.use("Agg")
 
@@ -30,7 +32,6 @@ from vocos import Vocos
 
 from f5_tts.model import CFM
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
-
 
 _ref_audio_cache = {}
 _ref_text_cache = {}
@@ -63,6 +64,7 @@ cfg_strength = 2.0
 sway_sampling_coef = -1.0
 speed = 1.0
 fix_duration = None
+
 
 # -----------------------------------------
 
@@ -143,43 +145,43 @@ def load_vocoder(vocoder_name="vocos", is_local=False, local_path="", device=dev
     return vocoder
 
 
-# load asr pipeline
-
-asr_pipe = None
-
-
-def initialize_asr_pipeline(device: str = device, dtype=None):
-    if dtype is None:
-        dtype = (
-            torch.float16
-            if "cuda" in device
-            and torch.cuda.get_device_properties(device).major >= 7
-            and not torch.cuda.get_device_name().endswith("[ZLUDA]")
-            else torch.float32
-        )
-    global asr_pipe
-    asr_pipe = pipeline(
-        "automatic-speech-recognition",
-        model="openai/whisper-large-v3",
-        torch_dtype=dtype,
-        device=device,
-    )
-
+faster_whisper_model = None
 
 # transcribe
 
+def download_model(token, repo_id):
+    allow_patterns = [
+        "config.json",
+        "preprocessor_config.json",
+        "model.bin",
+        "tokenizer.json",
+        "vocabulary.*",
+    ]
 
-def transcribe(ref_audio, language=None):
-    global asr_pipe
-    if asr_pipe is None:
-        initialize_asr_pipeline(device=device)
-    return asr_pipe(
-        ref_audio,
-        chunk_length_s=30,
-        batch_size=128,
-        generate_kwargs={"task": "transcribe", "language": language} if language else {"task": "transcribe"},
-        return_timestamps=False,
-    )["text"].strip()
+    kwargs = {
+        "allow_patterns": allow_patterns,
+        "token": token
+    }
+
+    return huggingface_hub.snapshot_download(repo_id, **kwargs)
+
+
+def transcribe(ref_audio, language, token, repo_id):
+    global faster_whisper_model
+    if faster_whisper_model is None:
+        faster_whisper_model = WhisperModel(
+            download_model(token, repo_id),
+            device='cuda' if ctranslate2.get_cuda_device_count() > 0 else "cpu"
+        )
+    if language == "zh":
+        init_prompt = "这是一个中文句子，带标点。接下来是另一个句子，注意标点和语气。"
+    else:
+        init_prompt = None
+    segments, _ = faster_whisper_model.transcribe(ref_audio, language=language, initial_prompt=init_prompt)
+    result = ""
+    for segment in segments:
+        result += segment.text
+    return result.strip()
 
 
 # load model checkpoint for inference
@@ -190,8 +192,8 @@ def load_checkpoint(model, ckpt_path, device: str, dtype=None, use_ema=True):
         dtype = (
             torch.float16
             if "cuda" in device
-            and torch.cuda.get_device_properties(device).major >= 7
-            and not torch.cuda.get_device_name().endswith("[ZLUDA]")
+               and torch.cuda.get_device_properties(device).major >= 7
+               and not torch.cuda.get_device_name().endswith("[ZLUDA]")
             else torch.float32
         )
     model = model.to(dtype)
@@ -234,14 +236,14 @@ def load_checkpoint(model, ckpt_path, device: str, dtype=None, use_ema=True):
 
 
 def load_model(
-    model_cls,
-    model_cfg,
-    ckpt_path,
-    mel_spec_type=mel_spec_type,
-    vocab_file="",
-    ode_method=ode_method,
-    use_ema=True,
-    device=device,
+        model_cls,
+        model_cfg,
+        ckpt_path,
+        mel_spec_type=mel_spec_type,
+        vocab_file="",
+        ode_method=ode_method,
+        use_ema=True,
+        device=device,
 ):
     if vocab_file == "":
         vocab_file = str(files("f5_tts").joinpath("infer/examples/vocab.txt"))
@@ -380,22 +382,22 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
 
 
 def infer_process(
-    ref_audio,
-    ref_text,
-    gen_text,
-    model_obj,
-    vocoder,
-    mel_spec_type=mel_spec_type,
-    show_info=print,
-    progress=tqdm,
-    target_rms=target_rms,
-    cross_fade_duration=cross_fade_duration,
-    nfe_step=nfe_step,
-    cfg_strength=cfg_strength,
-    sway_sampling_coef=sway_sampling_coef,
-    speed=speed,
-    fix_duration=fix_duration,
-    device=device,
+        ref_audio,
+        ref_text,
+        gen_text,
+        model_obj,
+        vocoder,
+        mel_spec_type=mel_spec_type,
+        show_info=print,
+        progress=tqdm,
+        target_rms=target_rms,
+        cross_fade_duration=cross_fade_duration,
+        nfe_step=nfe_step,
+        cfg_strength=cfg_strength,
+        sway_sampling_coef=sway_sampling_coef,
+        speed=speed,
+        fix_duration=fix_duration,
+        device=device,
 ):
     # Split the input text into batches
     audio, sr = torchaudio.load(ref_audio)
@@ -431,23 +433,23 @@ def infer_process(
 
 
 def infer_batch_process(
-    ref_audio,
-    ref_text,
-    gen_text_batches,
-    model_obj,
-    vocoder,
-    mel_spec_type="vocos",
-    progress=tqdm,
-    target_rms=0.1,
-    cross_fade_duration=0.15,
-    nfe_step=32,
-    cfg_strength=2.0,
-    sway_sampling_coef=-1,
-    speed=1,
-    fix_duration=None,
-    device=None,
-    streaming=False,
-    chunk_size=2048,
+        ref_audio,
+        ref_text,
+        gen_text_batches,
+        model_obj,
+        vocoder,
+        mel_spec_type="vocos",
+        progress=tqdm,
+        target_rms=0.1,
+        cross_fade_duration=0.15,
+        nfe_step=32,
+        cfg_strength=2.0,
+        sway_sampling_coef=-1,
+        speed=1,
+        fix_duration=None,
+        device=None,
+        streaming=False,
+        chunk_size=2048,
 ):
     audio, sr = ref_audio
     if audio.shape[0] > 1:
@@ -512,7 +514,7 @@ def infer_batch_process(
 
             if streaming:
                 for j in range(0, len(generated_wave), chunk_size):
-                    yield generated_wave[j : j + chunk_size], target_sample_rate
+                    yield generated_wave[j: j + chunk_size], target_sample_rate
             else:
                 generated_cpu = generated[0].cpu().numpy()
                 del generated

@@ -432,7 +432,7 @@ def start_training(
 
     if ch_8bit_adam:
         cmd += " --bnb_optimizer"
-    
+
     if ch_use_adma:
         cmd += " --use_adma"
 
@@ -624,7 +624,7 @@ def create_data_project(name, tokenizer_type):
     return gr.update(choices=project_list, value=name)
 
 
-def transcribe_all(name_project, audio_files, language, user=False, progress=gr.Progress()):
+def transcribe_all(name_project, audio_files, language, user, token, repo_id, progress=gr.Progress()):
     path_project = os.path.join(path_data, name_project)
     path_dataset = os.path.join(path_project, "dataset")
     path_project_wavs = os.path.join(path_project, "wavs")
@@ -655,27 +655,30 @@ def transcribe_all(name_project, audio_files, language, user=False, progress=gr.
 
     alpha = 0.5
     _max = 1.0
-    slicer = Slicer(24000)
 
     num = 0
     error_num = 0
     data = ""
-    for file_audio in progress.tqdm(file_audios, desc="transcribe files", total=len((file_audios))):
-        audio, _ = librosa.load(file_audio, sr=24000, mono=True)
+    for file_audio in progress.tqdm(file_audios, desc="transcribe files", total=len(file_audios)):
+        # Load audio with its native sampling rate
+        audio, sr = librosa.load(file_audio, sr=None, mono=True)
+
+        # Initialize slicer with the audio's native sampling rate
+        slicer = Slicer(sr)
 
         list_slicer = slicer.slice(audio)
         for chunk, start, end in progress.tqdm(list_slicer, total=len(list_slicer), desc="slicer files"):
-            name_segment = os.path.join(f"segment_{num}")
+            name_segment = f"segment_{num}"
             file_segment = os.path.join(path_project_wavs, f"{name_segment}.wav")
 
             tmp_max = np.abs(chunk).max()
             if tmp_max > 1:
                 chunk /= tmp_max
             chunk = (chunk / tmp_max * (_max * alpha)) + (1 - alpha) * chunk
-            wavfile.write(file_segment, 24000, (chunk * 32767).astype(np.int16))
+            wavfile.write(file_segment, sr, (chunk * 32767).astype(np.int16))
 
             try:
-                text = transcribe(file_segment, language)
+                text = transcribe(file_segment, language, token, repo_id)
                 text = text.strip()
 
                 data += f"{name_segment}|{text}\n"
@@ -687,12 +690,8 @@ def transcribe_all(name_project, audio_files, language, user=False, progress=gr.
     with open(file_metadata, "w", encoding="utf-8-sig") as f:
         f.write(data)
 
-    if error_num != []:
-        error_text = f"\nerror files : {error_num}"
-    else:
-        error_text = ""
-
-    return f"transcribe complete samples : {num}\npath : {path_project_wavs}{error_text}"
+    error_text = f"\nerror files: {error_num}" if error_num > 0 else ""
+    return f"transcribe complete samples: {num}\npath: {path_project_wavs}{error_text}"
 
 
 def format_seconds_to_hms(seconds):
@@ -1423,12 +1422,15 @@ Skip this step if you have your dataset, metadata.csv, and a folder wavs with al
             )
 
             audio_speaker = gr.File(label="Voice", type="filepath", file_count="multiple")
-            txt_lang = gr.Textbox(label="Language", value="English")
-            bt_transcribe = bt_create = gr.Button("Transcribe")
+            with gr.Row():
+                txt_lang = gr.Textbox(label="Language", value="English")
+                hf_token = gr.Textbox(label="输入huggingface token", value="")
+                hf_rep_id = gr.Textbox(label="Whisper model repo id")
+            bt_transcribe = bt_create = gr.Button("Transcribe(ct2)")
             txt_info_transcribe = gr.Textbox(label="Info", value="")
             bt_transcribe.click(
                 fn=transcribe_all,
-                inputs=[cm_project, audio_speaker, txt_lang, ch_manual],
+                inputs=[cm_project, audio_speaker, txt_lang, ch_manual, hf_token, hf_rep_id],
                 outputs=[txt_info_transcribe],
             )
             ch_manual.change(fn=check_user, inputs=[ch_manual], outputs=[audio_speaker, mark_info_transcribe])
@@ -1458,7 +1460,8 @@ Using the extended model, you can finetune to a new language that is missing sym
 ```""")
 
             exp_name_extend = gr.Radio(
-                label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base","F5TTS_Base_bigvgan", "E2TTS_Base"], value="F5TTS_v1_Base"
+                label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base", "F5TTS_Base_bigvgan", "E2TTS_Base"],
+                value="F5TTS_v1_Base"
             )
 
             with gr.Row():
@@ -1519,7 +1522,8 @@ Using the extended model, you can finetune to a new language that is missing sym
             txt_vocab_prepare = gr.Textbox(label="Vocab", value="")
 
             bt_prepare.click(
-                fn=create_metadata, inputs=[cm_project, ch_tokenizern, ch_use_adma], outputs=[txt_info_prepare, txt_vocab_prepare]
+                fn=create_metadata, inputs=[cm_project, ch_tokenizern, ch_use_adma],
+                outputs=[txt_info_prepare, txt_vocab_prepare]
             )
 
             random_sample_prepare = gr.Button("Random Sample")
@@ -1538,7 +1542,8 @@ The auto-setting is still experimental. Set a large value of epoch if not sure; 
 If you encounter a memory error, try reducing the batch size per GPU to a smaller number.
 ```""")
             with gr.Row():
-                exp_name = gr.Radio(label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base", "F5TTS_Base_bigvgan", "E2TTS_Base"])
+                exp_name = gr.Radio(label="Model",
+                                    choices=["F5TTS_v1_Base", "F5TTS_Base", "F5TTS_Base_bigvgan", "E2TTS_Base"])
                 tokenizer_file = gr.Textbox(label="Tokenizer File")
                 file_checkpoint_train = gr.Textbox(label="Path to the Pretrained Checkpoint")
 
@@ -1588,8 +1593,8 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             with gr.Row():
                 ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")
                 ch_use_adma = gr.Checkbox(label="启动A-DMA")
-                mixed_precision = gr.Radio(label="Mixed Precision", choices=["none", "fp16", "bf16"], default="fp16")
-                cd_logger = gr.Radio(label="Logger", choices=["none", "wandb", "tensorboard"], default="tensorboard")
+                mixed_precision = gr.Radio(label="Mixed Precision", choices=["none", "fp16", "bf16"], value="fp16")
+                cd_logger = gr.Radio(label="Logger", choices=["none", "wandb", "tensorboard"], value="tensorboard")
                 with gr.Column():
                     start_button = gr.Button("Start Training")
                     stop_button = gr.Button("Stop Training", interactive=False)
@@ -1777,7 +1782,8 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 Check the use_ema setting (True or False) for your model to see what works best for you. Set seed to -1 for random.
 ```""")
             exp_name = gr.Radio(
-                label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base", "F5TTS_Base_bigvgan", "E2TTS_Base"], value="F5TTS_v1_Base"
+                label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base", "F5TTS_Base_bigvgan", "E2TTS_Base"],
+                value="F5TTS_v1_Base"
             )
             list_checkpoints, checkpoint_select = get_checkpoints_project(projects_selelect, False)
 
