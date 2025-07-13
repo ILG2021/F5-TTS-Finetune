@@ -166,9 +166,11 @@ def download_model(token, repo_id):
     return huggingface_hub.snapshot_download(repo_id, **kwargs)
 
 
-def transcribe(ref_audio, language, token, repo_id):
+def transcribe(ref_audio, language=None, token=None, repo_id=None):
     global faster_whisper_model
     if faster_whisper_model is None:
+        if repo_id is None:
+            repo_id = "Systran/faster-whisper-large-v3"
         faster_whisper_model = WhisperModel(
             download_model(token, repo_id),
             device='cuda' if ctranslate2.get_cuda_device_count() > 0 else "cpu"

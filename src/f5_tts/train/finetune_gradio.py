@@ -668,7 +668,7 @@ def transcribe_all(name_project, audio_files, language, user, token, repo_id, pr
 
         list_slicer = slicer.slice(audio)
         for chunk, start, end in progress.tqdm(list_slicer, total=len(list_slicer), desc="slicer files"):
-            name_segment = f"segment_{num}"
+            name_segment = f"{os.path.splitext(file_audio)[0]}_segment_{num}"
             file_segment = os.path.join(path_project_wavs, f"{name_segment}.wav")
 
             tmp_max = np.abs(chunk).max()
@@ -1424,9 +1424,9 @@ Skip this step if you have your dataset, metadata.csv, and a folder wavs with al
             audio_speaker = gr.File(label="Voice", type="filepath", file_count="multiple")
             with gr.Row():
                 txt_lang = gr.Textbox(label="Language", value="English")
-                hf_token = gr.Textbox(label="输入huggingface token", value="")
-                hf_rep_id = gr.Textbox(label="Whisper model repo id")
-            bt_transcribe = bt_create = gr.Button("Transcribe(ct2)")
+                hf_token = gr.Textbox(label="Huggingface token", value="")
+                hf_rep_id = gr.Textbox(label="Faster Whisper model repo id")
+            bt_transcribe = bt_create = gr.Button("Transcribe")
             txt_info_transcribe = gr.Textbox(label="Info", value="")
             bt_transcribe.click(
                 fn=transcribe_all,
