@@ -1425,7 +1425,7 @@ Skip this step if you have your dataset, metadata.csv, and a folder wavs with al
             with gr.Row():
                 txt_lang = gr.Textbox(label="Language", value="English")
                 hf_token = gr.Textbox(label="Huggingface token", value="")
-                hf_rep_id = gr.Textbox(label="Faster Whisper model repo id")
+                hf_rep_id = gr.Textbox(label="Faster Whisper model repo id", value="")
             bt_transcribe = bt_create = gr.Button("Transcribe")
             txt_info_transcribe = gr.Textbox(label="Info", value="")
             bt_transcribe.click(
