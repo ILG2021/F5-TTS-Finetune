@@ -668,7 +668,7 @@ def transcribe_all(name_project, audio_files, language, user, token, repo_id, pr
 
         list_slicer = slicer.slice(audio)
         for chunk, start, end in progress.tqdm(list_slicer, total=len(list_slicer), desc="slicer files"):
-            name_segment = f"{os.path.splitext(file_audio)[0]}_segment_{num}"
+            name_segment = f"{os.path.splitext(os.path.basename(file_audio))[0]}_segment_{num}"
             file_segment = os.path.join(path_project_wavs, f"{name_segment}.wav")
 
             tmp_max = np.abs(chunk).max()
@@ -681,7 +681,7 @@ def transcribe_all(name_project, audio_files, language, user, token, repo_id, pr
                 text = transcribe(file_segment, language, token, repo_id)
                 text = text.strip()
 
-                data += f"{name_segment}|{text}\n"
+                data += f"{file_segment}|{text}\n"
 
                 num += 1
             except:  # noqa: E722
@@ -732,7 +732,7 @@ def get_correct_audio_path(
     return file_audio
 
 
-def create_metadata(name_project, ch_tokenizer, ch_use_adma, progress=gr.Progress()):
+def create_metadata(name_project, ch_tokenizer, ch_use_adma_prepare, progress=gr.Progress()):
     path_project = os.path.join(path_data, name_project)
     path_project_wavs = os.path.join(path_project, "wavs")
     file_metadata = os.path.join(path_project, "metadata.csv")
@@ -836,7 +836,7 @@ def create_metadata(name_project, ch_tokenizer, ch_use_adma, progress=gr.Progres
     else:
         error_text = ""
 
-    if ch_use_adma:
+    if ch_use_adma_prepare:
         extract_ssl_features(path_project)
     return (
         f"prepare complete \nsamples : {len(text_list)}\ntime data : {format_seconds_to_hms(lenght)}\nmin sec : {min_second}\nmax sec : {max_second}\nfile_arrow : {file_raw}\nvocab : {vocab_size}\n{error_text}",
@@ -1486,7 +1486,7 @@ Using the extended model, you can finetune to a new language that is missing sym
 
         with gr.TabItem("Prepare Data"):
             with gr.Row():
-                ch_use_adma = gr.Checkbox(label="启用A-DMA", value=False)
+                ch_use_adma_prepare = gr.Checkbox(label="启用A-DMA", value=False)
                 gr.Markdown("""```plaintext 
         Skip this step if you have your dataset, raw.arrow, duration.json, and vocab.txt
         ```""")
@@ -1522,7 +1522,7 @@ Using the extended model, you can finetune to a new language that is missing sym
             txt_vocab_prepare = gr.Textbox(label="Vocab", value="")
 
             bt_prepare.click(
-                fn=create_metadata, inputs=[cm_project, ch_tokenizern, ch_use_adma],
+                fn=create_metadata, inputs=[cm_project, ch_tokenizern, ch_use_adma_prepare],
                 outputs=[txt_info_prepare, txt_vocab_prepare]
             )
 
@@ -1643,7 +1643,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 mixed_precision.value = mixed_precision_value
                 cd_logger.value = logger_value
                 ch_8bit_adam.value = bnb_optimizer_value
-                ch_use_adma = ch_use_adma_value
+                ch_use_adma.value = ch_use_adma_value
 
             ch_stream = gr.Checkbox(label="Stream Output Experiment", value=True)
             txt_info_train = gr.Textbox(label="Info", value="")

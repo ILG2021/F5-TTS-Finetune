@@ -1,5 +1,5 @@
 """
-Script for extracting SSL features (e.g., Hubert) using PyTorch DDP.
+Script for extracting SSL features (e.g., Hubert) without using PyTorch DDP.
 """
 
 import argparse
@@ -11,10 +11,8 @@ from time import time
 
 import numpy as np
 import torch
-import torch.distributed as dist
 import torchaudio
 from torch.utils.data import DataLoader, Dataset
-from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoFeatureExtractor, AutoModel
 
 
@@ -23,26 +21,16 @@ from transformers import AutoFeatureExtractor, AutoModel
 #################################################################################
 
 
-def create_logger(logging_dir, rank):
+def create_logger(logging_dir):
     """
     Create a logger that writes to a log file and stdout.
     """
-    if rank == 0:  # Real logger for the main process
-        logging.basicConfig(
-            level=logging.INFO,
-            format="[\033[34m%(asctime)s\033[0m][Rank {}] %(message)s".format(rank),
-            datefmt="%Y-%m-%d %H:%M:%S",
-            handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler(f"{logging_dir}/log_rank{rank}.txt")],
-        )
-        logger = logging.getLogger(__name__)
-    else:  # Other processes can also log to their own files or be simpler
-        logging.basicConfig(
-            level=logging.INFO,
-            format="[\033[34m%(asctime)s\033[0m][Rank {}] %(message)s".format(rank),
-            datefmt="%Y-%m-%d %H:%M:%S",
-            handlers=[logging.FileHandler(f"{logging_dir}/log_rank{rank}.txt")],  # Log to file only
-        )
-        logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.INFO,
+    format="[\033[34m%(asctime)s\033[0m] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler(f"{logging_dir}/log.txt")],
+    )
+    logger = logging.getLogger(__name__)
     return logger
 
 
@@ -75,30 +63,14 @@ def main(args):
     """
     assert torch.cuda.is_available(), "Feature extraction currently requires at least one GPU."
 
-    # Setup DDP:
-    dist.init_process_group("nccl")
-    # world_size is useful for DistributedSampler, batch size calculations etc.
-    world_size = dist.get_world_size()
-    # Batch size per GPU. For feature extraction, often 1.
-    # args.global_batch_size would be the total batch across all GPUs.
-    # Here, we assume DataLoader batch_size is per-GPU.
-    # assert args.global_batch_size % world_size == 0, f"Global batch size must be divisible by world size."
-
-    rank = dist.get_rank()
-    device = rank % torch.cuda.device_count()
-    seed = args.global_seed * world_size + rank
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    seed = args.global_seed
     torch.manual_seed(seed)
-    torch.cuda.set_device(device)
-
     # Setup an output directory (optional, for logs primarily if args.output_dir handles features)
-    if rank == 0:
-        os.makedirs(args.output_dir, exist_ok=True)
-        # Central logging directory
-        os.makedirs(os.path.join(args.output_dir, "logs"), exist_ok=True)
-    dist.barrier()  # Ensure directory is created before other ranks proceed
-
-    logger = create_logger(os.path.join(args.output_dir, "logs"), rank)
-    logger.info(f"Starting rank={rank}, seed={seed}, world_size={world_size}, device={device}.")
+    os.makedirs(args.output_dir, exist_ok=True)
+    os.makedirs(os.path.join(args.output_dir, "logs"), exist_ok=True)
+    logger = create_logger(os.path.join(args.output_dir, "logs"))
+    logger.info(f"Starting seed={seed}, device={device}.")
     logger.info(f"Script arguments: {args}")
 
     # Load SSL model and feature extractor:
@@ -115,27 +87,18 @@ def main(args):
 
     # Setup data:
     dataset = AudioPathDataset(args.audio_root_dir, args.file_extension)
-    sampler = DistributedSampler(
-        dataset,
-        num_replicas=world_size,
-        rank=rank,
-        shuffle=False,  # Typically False for feature extraction unless order doesn't matter
-        seed=args.global_seed,
-    )
     loader = DataLoader(
         dataset,
         batch_size=1,  # Batch size per GPU
-        shuffle=False,  # Shuffle is handled by sampler
-        sampler=sampler,
+        shuffle=False,
         num_workers=args.num_workers,
         pin_memory=True,
         drop_last=False,  # Process all files
     )
 
-    logger.info(f"Rank {rank}: Dataset size: {len(dataset)}, Sampler will process: {len(sampler)} files.")
-
+    logger.info(f"Dataset size: {len(dataset)}.")
     processed_count = 0
-    total_files_on_rank = len(sampler)
+    total_files = len(dataset)
 
     start_time = time()
 
@@ -199,28 +162,27 @@ def main(args):
                 if processed_count % args.log_every == 0:
                     elapsed_time = time() - start_time
                     eta = (
-                        (elapsed_time / processed_count) * (total_files_on_rank - processed_count)
+                        (elapsed_time / processed_count) * (total_files - processed_count)
                         if processed_count > 0
                         else 0
                     )
                     logger.info(
-                        f"Processed {processed_count}/{total_files_on_rank} files. "
+                        f"Processed {processed_count}/{total_files} files. "
                         f"Last: {relative_path_stem}. ETA: {eta:.2f}s"
                     )
 
             except Exception as e:
                 logger.error(f"Error processing {full_audio_path}: {e}")
                 # Optionally, save a list of failed files
-                with open(os.path.join(args.output_dir, "logs", f"failed_files_rank{rank}.txt"), "a") as f_err:
+                with open(os.path.join(args.output_dir, "logs", "failed_files.txt"), "a") as f_err:
                     f_err.write(f"{full_audio_path}\t{e}\n")
                 continue  # Skip to the next file
 
-    logger.info(f"Rank {rank} finished processing {processed_count} files.")
-    dist.destroy_process_group()
+    logger.info(f"Finished processing {processed_count} files.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="SSL Feature Extractor using DDP")
+    parser = argparse.ArgumentParser(description="SSL Feature Extractor")
     parser.add_argument(
         "--audio-root-dir",
         type=str,

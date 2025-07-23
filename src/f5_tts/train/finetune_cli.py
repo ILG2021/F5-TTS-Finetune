@@ -11,6 +11,7 @@ from f5_tts.model.utils import get_tokenizer
 from third_party.adma import CFM_ADMA
 from third_party.adma.dataset_adma import load_dataset_adma
 from third_party.adma.trainer_adma import ADMATrainer
+from third_party.adma.dit_adma import DiTADMA
 
 # -------------------------- Dataset Settings --------------------------- #
 target_sample_rate = 24000
@@ -97,7 +98,7 @@ def main():
 
     if args.exp_name == "F5TTS_v1_Base":
         wandb_resume_id = None
-        model_cls = DiT
+        model_cls = DiTADMA
         model_cfg = dict(
             dim=1024,
             depth=22,

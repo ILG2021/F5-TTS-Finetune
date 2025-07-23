@@ -227,7 +227,7 @@ class ADMATrainer:
                 del checkpoint["ema_model_state_dict"][key]
 
         if self.is_main:
-            self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
+            self.ema_model.load_state_dict(checkpoint["ema_model_state_dict"], strict=False)
 
         if "update" in checkpoint or "step" in checkpoint:
             # patch for backward compatibility, with before f992c4e
@@ -253,7 +253,7 @@ class ADMATrainer:
                 for k, v in checkpoint["ema_model_state_dict"].items()
                 if k not in ["initted", "update", "step"]
             }
-            self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"])
+            self.accelerator.unwrap_model(self.model).load_state_dict(checkpoint["model_state_dict"], strict=False)
             update = 0
 
         del checkpoint
