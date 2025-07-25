@@ -120,6 +120,11 @@ parser.add_argument(
     help="Not to use lossy ASCII transliterations of unicode text in saved file names.",
 )
 parser.add_argument(
+    "--no_ref_audio",
+    action="store_true",
+    help="Don't use ref audio as generate condition.",
+)
+parser.add_argument(
     "--remove_silence",
     action="store_true",
     help="To remove long silence found in ouput",
@@ -222,6 +227,7 @@ sway_sampling_coef = args.sway_sampling_coef or config.get("sway_sampling_coef",
 speed = args.speed or config.get("speed", speed)
 fix_duration = args.fix_duration or config.get("fix_duration", fix_duration)
 device = args.device or config.get("device", device)
+no_ref_audio = args.no_ref_audio
 
 
 # patches for pip pkg user
@@ -337,6 +343,7 @@ def main():
         local_speed = voices[voice].get("speed", speed)
         gen_text_ = text.strip()
         print(f"Voice: {voice}")
+        print("no_ref_audio", no_ref_audio)
         audio_segment, final_sample_rate, spectrogram = infer_process(
             ref_audio_,
             ref_text_,
@@ -352,6 +359,7 @@ def main():
             speed=local_speed,
             fix_duration=fix_duration,
             device=device,
+            no_ref_audio=no_ref_audio
         )
         generated_audio_segments.append(audio_segment)
 
