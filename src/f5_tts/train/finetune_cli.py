@@ -19,6 +19,8 @@ n_mel_channels = 100
 hop_length = 256
 win_length = 1024
 n_fft = 1024
+
+
 # mel_spec_type = "vocos"  # 'vocos' or 'bigvgan'
 
 
@@ -98,7 +100,10 @@ def main():
 
     if args.exp_name == "F5TTS_v1_Base":
         wandb_resume_id = None
-        model_cls = DiTADMA
+        if args.use_adma:
+            model_cls = DiTADMA
+        else:
+            model_cls = DiT
         model_cfg = dict(
             dim=1024,
             depth=22,
