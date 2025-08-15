@@ -7,7 +7,7 @@ from importlib.resources import files
 
 import jieba
 import torch
-from pypinyin import Style, lazy_pinyin
+from pypinyin import Style, lazy_pinyin, load_phrases_dict
 from torch.nn.utils.rnn import pad_sequence
 
 
@@ -142,11 +142,50 @@ def get_tokenizer(dataset_name, tokenizer: str = "pinyin"):
 
 # convert char to pinyin
 
+def load_pypinyin_dict_file(file_path):
+    """
+    加载自定义拼音词典文件。
+    文件格式示例： 好使唤人: hào shǐ huàn rén
+    转换为 pypinyin 格式： {'好使唤人': [['hào'], ['shǐ'], ['huàn'], ['rén']]}
+    """
+    custom_phrases = {}
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            # 跳过空行或无效行
+            if ':' not in line:
+                continue
+
+            # 分割词语和拼音部分
+            word, pinyins_str = line.split(':', 1)
+            word = word.strip()
+
+            # 按空格分割拼音字符串
+            pinyins_list = pinyins_str.strip().split()
+
+            # 将拼音列表转换为 pypinyin 需要的嵌套列表格式
+            # 例如 ['hào', 'shǐ'] -> [['hào'], ['shǐ']]
+            formatted_pinyins = [[p] for p in pinyins_list]
+
+            if word:
+                custom_phrases[word] = formatted_pinyins
+
+    return custom_phrases
 
 def convert_char_to_pinyin(text_list, polyphone=True):
     if jieba.dt.initialized is False:
         jieba.default_logger.setLevel(50)  # CRITICAL
         jieba.initialize()
+
+    jieba_dict_file = str(files("f5_tts").joinpath(f"dicts/jieba.txt"))
+    if os.path.exists(jieba_dict_file):
+        print(f"加载jieba词典{jieba_dict_file}")
+        jieba.load_userdict(jieba_dict_file)
+
+    pypinyin_dict_file = str(files("f5_tts").joinpath(f"dicts/pypinyin.txt"))
+    if os.path.exists(pypinyin_dict_file):
+        print(f"加载pypinyin词典{pypinyin_dict_file}")
+        load_phrases_dict(load_pypinyin_dict_file(pypinyin_dict_file))
 
     final_text_list = []
     custom_trans = str.maketrans(
