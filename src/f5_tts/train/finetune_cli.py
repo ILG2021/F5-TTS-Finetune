@@ -186,7 +186,7 @@ def main():
 
     vocab_char_map, vocab_size = get_tokenizer(tokenizer_path, tokenizer)
 
-    print("\nvocab : ", vocab_size)
+    print("\nvocab : ", vocab_size + 1)   # 模型实际使用的时候还有一个填充token
     print("\nvocoder : ", mel_spec_type)
 
     mel_spec_kwargs = dict(
