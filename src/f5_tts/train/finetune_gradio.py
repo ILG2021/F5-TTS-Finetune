@@ -1462,7 +1462,7 @@ Check the vocabulary for fine-tuning Emilia_ZH_EN to ensure all symbols are incl
 ```""")
             with gr.Row():
                 vocab_tokenizer_text = gr.Textbox(label="Custom Tokenizer File Path")
-                vocab_pretrain_text = gr.Textbox(label="Custom Pretrain Model File Path")
+                vocab_pretrain_text = gr.Textbox(label="Custom Pretrain Model File Path（Need prune first）")
             check_button = gr.Button("Check Vocab")
             txt_info_check = gr.Textbox(label="Info", value="")
 
