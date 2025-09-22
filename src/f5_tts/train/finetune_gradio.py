@@ -1763,7 +1763,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     keep_last_n_checkpoints,
                     last_per_updates,
                     ch_finetune,
-                    vocab_pretrain_text,
+                    file_checkpoint_train,
                     tokenizer_type,
                     tokenizer_file,
                     mixed_precision,

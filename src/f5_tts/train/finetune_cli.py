@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 from importlib.resources import files
+from pathlib import Path
 
 from cached_path import cached_path
 
@@ -114,9 +115,14 @@ def main():
         )
         if args.finetune:
             if args.pretrain is None:
-                ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
+                pretrains = list(Path(checkpoint_path).glob("pretrained_*"))
+                if not pretrains or len(pretrains) == 0:
+                    ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
+                else:
+                    ckpt_path = os.path.join(checkpoint_path, pretrains[0])
             else:
                 ckpt_path = args.pretrain
+            print("ckpt_path", ckpt_path)
 
     elif args.exp_name == "F5TTS_Base" or args.exp_name == "F5TTS_Base_bigvgan":
         wandb_resume_id = None
