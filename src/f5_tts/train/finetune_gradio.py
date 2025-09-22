@@ -1029,6 +1029,7 @@ def vocab_extend(project_name, symbols, model_type, vocab_tokenizer, vocab_pretr
     with open(file_vocab, "r", encoding="utf-8-sig") as f:
         data = f.read()
         vocab = data.split("\n")
+        vocab = [item for item in vocab if item != '']
     vocab_check = set(vocab)
 
     miss_symbols = []
@@ -1489,10 +1490,13 @@ Using the extended model, you can finetune to a new language that is missing sym
 
             txt_extend.change(vocab_count, inputs=[txt_extend], outputs=[txt_count_symbol])
             check_button.click(
-                fn=vocab_check, inputs=[cm_project, tokenizer_type, vocab_tokenizer_text], outputs=[txt_info_check, txt_extend]
+                fn=vocab_check, inputs=[cm_project, tokenizer_type, vocab_tokenizer_text],
+                outputs=[txt_info_check, txt_extend]
             )
             extend_button.click(
-                fn=vocab_extend, inputs=[cm_project, txt_extend, exp_name_extend, vocab_tokenizer_text, vocab_pretrain_text], outputs=[txt_info_extend, vocab_pretrain_text]
+                fn=vocab_extend,
+                inputs=[cm_project, txt_extend, exp_name_extend, vocab_tokenizer_text, vocab_pretrain_text],
+                outputs=[txt_info_extend, vocab_pretrain_text]
             )
 
         with gr.TabItem("Prepare Data"):
