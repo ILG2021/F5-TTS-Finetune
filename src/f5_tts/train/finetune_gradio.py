@@ -1029,7 +1029,6 @@ def vocab_extend(project_name, symbols, model_type, vocab_tokenizer, vocab_pretr
     with open(file_vocab, "r", encoding="utf-8-sig") as f:
         data = f.read()
         vocab = data.split("\n")
-        vocab = [item for item in vocab if item != '']
     vocab_check = set(vocab)
 
     miss_symbols = []
