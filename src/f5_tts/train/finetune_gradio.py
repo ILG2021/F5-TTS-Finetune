@@ -1007,15 +1007,18 @@ def vocab_count(text):
     return str(len(text.split(",")))
 
 
-def vocab_extend(project_name, symbols, model_type):
+def vocab_extend(project_name, symbols, model_type, vocab_tokenizer, vocab_pretrain):
     if symbols == "":
         return "Symbols empty!"
 
     name_project = project_name
-    path_project = os.path.join(path_data, name_project)
-    file_vocab_project = os.path.join(path_project, "vocab.txt")
+    path_project_data = os.path.join(path_data, name_project)
+    file_vocab_project = os.path.join(path_project_data, "vocab.txt")
 
-    file_vocab = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
+    if vocab_tokenizer:
+        file_vocab = vocab_tokenizer
+    else:
+        file_vocab = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
     if not os.path.isfile(file_vocab):
         return f"the file {file_vocab} not found !"
 
@@ -1048,14 +1051,17 @@ def vocab_extend(project_name, symbols, model_type):
     with open(file_vocab_project, "w", encoding="utf-8") as f:
         f.write("\n".join(vocab))
 
-    if model_type == "F5TTS_v1_Base":
-        ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
-    elif model_type == "F5TTS_Base":
-        ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
-    elif model_type == "F5TTS_Base_bigvgan":
-        ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base_bigvgan/model_1250000.pt"))
-    elif model_type == "E2TTS_Base":
-        ckpt_path = str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.pt"))
+    if vocab_pretrain:
+        ckpt_path = vocab_pretrain
+    else:
+        if model_type == "F5TTS_v1_Base":
+            ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
+        elif model_type == "F5TTS_Base":
+            ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
+        elif model_type == "F5TTS_Base_bigvgan":
+            ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base_bigvgan/model_1250000.pt"))
+        elif model_type == "E2TTS_Base":
+            ckpt_path = str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.pt"))
 
     vocab_size_new = len(miss_symbols)
 
@@ -1072,13 +1078,15 @@ def vocab_extend(project_name, symbols, model_type):
     return f"vocab old size : {size_vocab}\nvocab new size : {size}\nvocab add : {vocab_size_new}\nnew symbols :\n{vocab_new}"
 
 
-def vocab_check(project_name, tokenizer_type):
+def vocab_check(project_name, tokenizer_type, vocab_tokenizer_text):
     name_project = project_name
     path_project = os.path.join(path_data, name_project)
 
     file_metadata = os.path.join(path_project, "metadata.csv")
-
-    file_vocab = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
+    if vocab_tokenizer_text:
+        file_vocab = vocab_tokenizer_text
+    else:
+        file_vocab = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
     if not os.path.isfile(file_vocab):
         return f"the file {file_vocab} not found !", ""
 
@@ -1452,7 +1460,9 @@ Skip this step if you have your dataset, metadata.csv, and a folder wavs with al
             gr.Markdown("""```plaintext 
 Check the vocabulary for fine-tuning Emilia_ZH_EN to ensure all symbols are included. For fine-tuning a new language.
 ```""")
-
+            with gr.Row():
+                vocab_tokenizer_text = gr.Textbox(label="Custom Tokenizer File Path")
+                vocab_pretrain_text = gr.Textbox(label="Custom Pretrain Model File Path")
             check_button = gr.Button("Check Vocab")
             txt_info_check = gr.Textbox(label="Info", value="")
 
@@ -1479,10 +1489,10 @@ Using the extended model, you can finetune to a new language that is missing sym
 
             txt_extend.change(vocab_count, inputs=[txt_extend], outputs=[txt_count_symbol])
             check_button.click(
-                fn=vocab_check, inputs=[cm_project, tokenizer_type], outputs=[txt_info_check, txt_extend]
+                fn=vocab_check, inputs=[cm_project, tokenizer_type, vocab_tokenizer_text], outputs=[txt_info_check, txt_extend]
             )
             extend_button.click(
-                fn=vocab_extend, inputs=[cm_project, txt_extend, exp_name_extend], outputs=[txt_info_extend]
+                fn=vocab_extend, inputs=[cm_project, txt_extend, exp_name_extend, vocab_tokenizer_text, vocab_pretrain_text], outputs=[txt_info_extend]
             )
 
         with gr.TabItem("Prepare Data"):
@@ -1545,8 +1555,8 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             with gr.Row():
                 exp_name = gr.Radio(label="Model",
                                     choices=["F5TTS_v1_Base", "F5TTS_Base", "F5TTS_Base_bigvgan", "E2TTS_Base"])
-                tokenizer_file = gr.Textbox(label="Tokenizer File")
-                file_checkpoint_train = gr.Textbox(label="Path to the Pretrained Checkpoint")
+                tokenizer_file = gr.Textbox(label="Tokenizer File", visible=False)
+                file_checkpoint_train = gr.Textbox(label="Path to the Pretrained Checkpoint", visible=False)
 
             with gr.Row():
                 ch_finetune = bt_create = gr.Checkbox(label="Finetune")
