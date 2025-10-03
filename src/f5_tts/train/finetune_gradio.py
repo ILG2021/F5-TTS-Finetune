@@ -1075,7 +1075,7 @@ def vocab_extend(project_name, symbols, model_type, vocab_tokenizer, vocab_pretr
     size = expand_model_embeddings(ckpt_path, new_ckpt_file, num_new_tokens=vocab_size_new)
 
     vocab_new = "\n".join(miss_symbols)
-    return f"vocab old size : {size_vocab}\nvocab new size : {size}\nvocab add : {vocab_size_new}\nnew symbols :\n{vocab_new}", new_ckpt_file
+    return f"vocab old size : {size_vocab}\nvocab new size : {size}\nvocab add : {vocab_size_new}\nnew symbols :\n{vocab_new}"
 
 
 def vocab_check(project_name, tokenizer_type, vocab_tokenizer_text):
@@ -1495,7 +1495,7 @@ Using the extended model, you can finetune to a new language that is missing sym
             extend_button.click(
                 fn=vocab_extend,
                 inputs=[cm_project, txt_extend, exp_name_extend, vocab_tokenizer_text, vocab_pretrain_text],
-                outputs=[txt_info_extend, vocab_pretrain_text]
+                outputs=[txt_info_extend]
             )
 
         with gr.TabItem("Prepare Data"):

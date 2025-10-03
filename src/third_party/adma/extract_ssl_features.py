@@ -108,7 +108,12 @@ def main(args):
         for i in range(len(full_audio_paths)):
             full_audio_path = full_audio_paths[i]
             relative_path_stem = relative_path_stems[i]
-
+            output_feat_path = Path(args.output_dir) / relative_path_stem
+            output_feat_path = output_feat_path.with_suffix(".npy")
+            if not output_feat_path.parent.exists():
+                output_feat_path.parent.mkdir(parents=True, exist_ok=True)
+            if os.path.exists(output_feat_path):  # don't repeat extract feature
+                continue
             try:
                 wav, sr = torchaudio.load(full_audio_path)
                 if sr != args.sample_rate:
@@ -150,10 +155,6 @@ def main(args):
 
                 # Define output path for the feature
                 # e.g., output_dir/speaker_id/chapter_id/filename_stem.npy
-                output_feat_path = Path(args.output_dir) / relative_path_stem
-                output_feat_path = output_feat_path.with_suffix(".npy")
-                if not output_feat_path.parent.exists():
-                    output_feat_path.parent.mkdir(parents=True, exist_ok=True)
 
                 np.save(output_feat_path, representation.detach().cpu().numpy())
                 # logger.debug(f"Saved features for {relative_path_stem} to {output_feat_path}")
