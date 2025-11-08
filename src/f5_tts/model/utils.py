@@ -8,6 +8,7 @@ import os
 import jieba
 from pypinyin import lazy_pinyin, Style, load_phrases_dict
 import torch
+from pypinyin.constants import PHRASES_DICT
 from torch.nn.utils.rnn import pad_sequence
 
 
@@ -193,12 +194,9 @@ def convert_zh_mix_char_to_pinyin(text_list, polyphone=True):
         pypinyin_dict_file = str(files("f5_tts").joinpath(f"dicts/pypinyin.txt"))
         if os.path.exists(pypinyin_dict_file):
             print(f"加载pypinyin词典{pypinyin_dict_file}")
-            for line in open(pypinyin_dict_file, 'r', encoding='utf-8').read().split("\n"):
-                parts = line.split(":")
-                if len(parts) > 0:
-                    jieba.add_word(parts[0])
-
             load_phrases_dict(load_pypinyin_dict_file(pypinyin_dict_file))
+            for word in PHRASES_DICT:
+                jieba.add_word(word)
 
     final_text_list = []
     custom_trans = str.maketrans(
