@@ -1119,7 +1119,7 @@ def vocab_check(project_name, tokenizer_type, vocab_tokenizer_text):
                 miss_symbols.append(t)
                 miss_symbols_keep[t] = t
             if has_miss_symbols:
-                print(f"{sp[1].strip()} -> {text} contains miss symbols")
+                print(f"{sp[1].strip()} -> {''.join(text)} contains miss symbols")
 
     if miss_symbols == []:
         vocab_miss = ""
