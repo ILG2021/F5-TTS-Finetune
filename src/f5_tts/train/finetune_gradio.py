@@ -739,6 +739,7 @@ def create_metadata(name_project, ch_tokenizer, ch_use_adma_prepare, progress=gr
     file_raw = os.path.join(path_project, "raw.arrow")
     file_duration = os.path.join(path_project, "duration.json")
     file_vocab = os.path.join(path_project, "vocab.txt")
+    file_info = os.path.join(path_project, "info.txt")
 
     if not os.path.isfile(file_metadata):
         return "The file was not found in " + file_metadata, ""
@@ -839,8 +840,10 @@ def create_metadata(name_project, ch_tokenizer, ch_use_adma_prepare, progress=gr
 
     if ch_use_adma_prepare:
         extract_ssl_features(path_project)
+    info = f"prepare complete \nsamples : {len(text_list)}\ntime data : {format_seconds_to_hms(lenght)}\nmin sec : {min_second}\nmax sec : {max_second}\nfile_arrow : {file_raw}\nvocab : {vocab_size}\n{error_text}"
+    open(file_info, 'w', encoding='utf-8').write(info)
     return (
-        f"prepare complete \nsamples : {len(text_list)}\ntime data : {format_seconds_to_hms(lenght)}\nmin sec : {min_second}\nmax sec : {max_second}\nfile_arrow : {file_raw}\nvocab : {vocab_size}\n{error_text}",
+        info,
         new_vocal,
     )
 
