@@ -1113,9 +1113,13 @@ def vocab_check(project_name, tokenizer_type, vocab_tokenizer_text):
             text = convert_char_to_pinyin([text], polyphone=True)[0]
 
         for t in text:
+            has_miss_symbols = False
             if t not in vocab and t not in miss_symbols_keep:
+                has_miss_symbols = True
                 miss_symbols.append(t)
                 miss_symbols_keep[t] = t
+            if has_miss_symbols:
+                print(f"{sp[1].strip()} -> {text} contains miss symbols")
 
     if miss_symbols == []:
         vocab_miss = ""

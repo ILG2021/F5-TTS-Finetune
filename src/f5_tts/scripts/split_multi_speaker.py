@@ -245,7 +245,7 @@ def process_audio_folder(source_folder, multi_speaker_folder="multi-speaker",
     multi_speaker_path.mkdir(exist_ok=True)
 
     # 获取所有WAV文件
-    wav_files = list(source_path.glob("*.wav"))
+    wav_files = list(source_path.rglob("*.wav"))
 
     if not wav_files:
         print(f"⚠️  在 {source_folder} 中没有找到WAV文件")
