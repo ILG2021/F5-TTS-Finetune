@@ -4,10 +4,6 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
-import ctranslate2
-import huggingface_hub
-from faster_whisper import WhisperModel
-
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # for MPS device compatibility
 sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/../../third_party/BigVGAN/")
 
@@ -150,6 +146,8 @@ faster_whisper_model = None
 # transcribe
 
 def download_model(token, repo_id):
+    import huggingface_hub
+
     allow_patterns = [
         "config.json",
         "preprocessor_config.json",
@@ -167,6 +165,8 @@ def download_model(token, repo_id):
 
 
 def transcribe(ref_audio, language=None, token=None, repo_id=None):
+    import ctranslate2
+    from faster_whisper import WhisperModel
     global faster_whisper_model
     if faster_whisper_model is None:
         if repo_id is None:
