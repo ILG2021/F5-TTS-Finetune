@@ -86,7 +86,6 @@ parser.add_argument(
     help="The transcript/subtitle for the reference audio",
 )
 parser.add_argument(
-    "-sf",
     "--ref_file",
     type=str,
     help="The transcript/subtitle file for the reference audio",
@@ -186,6 +185,11 @@ parser.add_argument(
     type=str,
     help="Specify the device to run on",
 )
+parser.add_argument(
+    "--ft_vocos",
+    type=str,
+    help="Finetune vocos huggingface repo id",
+)
 args = parser.parse_args()
 
 
@@ -236,6 +240,7 @@ speed = args.speed or config.get("speed", speed)
 fix_duration = args.fix_duration or config.get("fix_duration", fix_duration)
 device = args.device or config.get("device", device)
 no_ref_audio = args.no_ref_audio
+ft_vocos = args.ft_vocos
 
 
 # patches for pip pkg user
@@ -367,7 +372,8 @@ def main():
             speed=local_speed,
             fix_duration=fix_duration,
             device=device,
-            no_ref_audio=no_ref_audio
+            no_ref_audio=no_ref_audio,
+            ft_vocos=ft_vocos
         )
         generated_audio_segments.append(audio_segment)
 
