@@ -815,9 +815,9 @@ def create_metadata(name_project, ch_tokenizer, ch_use_adma_prepare, progress=gr
     new_vocal = ""
     if not ch_tokenizer:
         if not os.path.isfile(file_vocab):
-            file_vocab_finetune = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
+            file_vocab_finetune = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/vocab.txt"))
             if not os.path.isfile(file_vocab_finetune):
-                return "Error: Vocabulary file 'Emilia_ZH_EN_pinyin' not found!", ""
+                return "Error: Vocabulary file 'OpenF5-TTS-Base' not found!", ""
             shutil.copy2(file_vocab_finetune, file_vocab)
 
         with open(file_vocab, "r", encoding="utf-8-sig") as f:
@@ -1021,7 +1021,7 @@ def vocab_extend(project_name, symbols, model_type, vocab_tokenizer, vocab_pretr
     if vocab_tokenizer:
         file_vocab = vocab_tokenizer
     else:
-        file_vocab = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
+        file_vocab = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/vocab.txt"))
     if not os.path.isfile(file_vocab):
         return f"the file {file_vocab} not found !"
 
@@ -1058,13 +1058,7 @@ def vocab_extend(project_name, symbols, model_type, vocab_tokenizer, vocab_pretr
         ckpt_path = vocab_pretrain
     else:
         if model_type == "F5TTS_v1_Base":
-            ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
-        elif model_type == "F5TTS_Base":
-            ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
-        elif model_type == "F5TTS_Base_bigvgan":
-            ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base_bigvgan/model_1250000.pt"))
-        elif model_type == "E2TTS_Base":
-            ckpt_path = str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.pt"))
+            ckpt_path = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/model.pt"))
 
     vocab_size_new = len(miss_symbols)
 
@@ -1089,7 +1083,7 @@ def vocab_check(project_name, tokenizer_type, vocab_tokenizer_text):
     if vocab_tokenizer_text:
         file_vocab = vocab_tokenizer_text
     else:
-        file_vocab = os.path.join(path_data, "Emilia_ZH_EN_pinyin/vocab.txt")
+        file_vocab = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/vocab.txt"))
     if not os.path.isfile(file_vocab):
         return f"the file {file_vocab} not found !", ""
 
@@ -1478,7 +1472,7 @@ Using the extended model, you can finetune to a new language that is missing sym
 ```""")
 
             exp_name_extend = gr.Radio(
-                label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base", "F5TTS_Base_bigvgan", "E2TTS_Base"],
+                label="Model", choices=["F5TTS_v1_Base"],
                 value="F5TTS_v1_Base"
             )
 
@@ -1564,7 +1558,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 ```""")
             with gr.Row():
                 exp_name = gr.Radio(label="Model",
-                                    choices=["F5TTS_v1_Base", "F5TTS_Base", "F5TTS_Base_bigvgan", "E2TTS_Base"])
+                                    choices=["F5TTS_v1_Base"])
                 tokenizer_file = gr.Textbox(label="Tokenizer File", visible=False)
                 file_checkpoint_train = gr.Textbox(label="Path to the Pretrained Checkpoint", visible=False)
 

@@ -297,18 +297,9 @@ if model != "F5TTS_Base":
     assert vocoder_name == model_cfg.model.mel_spec.mel_spec_type
 
 # override for previous models
-if model == "F5TTS_Base":
-    if vocoder_name == "vocos":
-        ckpt_step = 1200000
-    elif vocoder_name == "bigvgan":
-        model = "F5TTS_Base_bigvgan"
-        ckpt_type = "pt"
-elif model == "E2TTS_Base":
-    repo_name = "E2-TTS"
-    ckpt_step = 1200000
 
 if not ckpt_file:
-    ckpt_file = str(cached_path(f"hf://SWivid/{repo_name}/{model}/model_{ckpt_step}.{ckpt_type}"))
+    ckpt_file = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/vocab.txt"))
 
 print(f"Using {model}...")
 ema_model = load_model(
