@@ -981,7 +981,7 @@ def expand_model_embeddings(ckpt_path, new_ckpt_path, num_new_tokens=42):
         ckpt = {"ema_model_state_dict": ckpt}
     elif ckpt_path.endswith(".pt"):
         ckpt = torch.load(ckpt_path, map_location="cpu")
-
+        ckpt = {"ema_model_state_dict": ckpt["ema_model_state_dict"]}  # trim redundant keys
     ema_sd = ckpt.get("ema_model_state_dict", {})
     embed_key_ema = "ema_model.transformer.text_embed.text_embed.weight"
     old_embed_ema = ema_sd[embed_key_ema]
