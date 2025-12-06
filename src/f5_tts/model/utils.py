@@ -191,9 +191,9 @@ def convert_zh_mix_char_to_pinyin(text_list, pinyin_dict_path, polyphone=True):
     if not dict_loaded:
         dict_loaded = True
 
-        if pinyin_dict_path:    # 推理的时候放在权重文件夹指定
+        if pinyin_dict_path and os.path.exists(pinyin_dict_path):    # 推理的时候放在权重文件夹指定
             pypinyin_dict_file = pinyin_dict_path
-        else:                   # 微调的时候放在固定dicts文件夹
+        else:                                                        # 微调的时候放在固定dicts文件夹
             pypinyin_dict_file = str(files("f5_tts").joinpath(f"dicts/pypinyin.txt"))
         if os.path.exists(pypinyin_dict_file):
             print(f"加载pypinyin词典{pypinyin_dict_file}")
