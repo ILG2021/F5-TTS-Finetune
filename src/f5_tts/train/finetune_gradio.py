@@ -28,7 +28,7 @@ from datasets.arrow_writer import ArrowWriter
 from safetensors.torch import load_file, save_file
 from scipy.io import wavfile
 
-# from f5_tts.api import F5TTS
+from f5_tts.api import F5TTS
 from f5_tts.infer.utils_infer import transcribe
 from f5_tts.model.utils import convert_char_to_pinyin
 from third_party.adma.preprocess import extract_ssl_features
@@ -1809,7 +1809,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             with gr.Row():
                 nfe_step = gr.Number(label="NFE Step", value=32)
                 speed = gr.Slider(label="Speed", value=1.0, minimum=0.3, maximum=2.0, step=0.1)
-                seed = gr.Number(label="Random Seed", value=-1, minimum=-1)
+                seed = gr.Number(label="Random Seed", value=42, minimum=1)
                 remove_silence = gr.Checkbox(label="Remove Silence")
 
             with gr.Row():
@@ -1824,7 +1824,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             random_sample_infer = gr.Button("Random Sample")
 
             ref_text = gr.Textbox(label="Reference Text")
-            ref_audio = gr.Audio(label="Reference Audio", type="filepath")
+            ref_audio = gr.Audio(label="Reference Audio", type="filepath", show_download_button=True)
             gen_text = gr.Textbox(label="Text to Generate")
 
             random_sample_infer.click(
