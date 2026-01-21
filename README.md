@@ -246,6 +246,7 @@ Note: Some model components have linting exceptions for E722 to accommodate tens
 - [f5-tts-mlx](https://github.com/lucasnewman/f5-tts-mlx/tree/main) Implementation with MLX framework by [Lucas Newman](https://github.com/lucasnewman)
 - [F5-TTS-ONNX](https://github.com/DakeQQ/F5-TTS-ONNX) ONNX Runtime version by [DakeQQ](https://github.com/DakeQQ)
 - [Yuekai Zhang](https://github.com/yuekaizhang) Triton and TensorRT-LLM support ~
+- [GPT Sovits](https://github.com/RVC-Boss/GPT-SoVITS) Text frontend
 
 ## Citation
 If our work and codebase is useful for you, please cite as:

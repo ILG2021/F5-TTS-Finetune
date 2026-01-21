@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import os
 import random
+import re
 from collections import defaultdict
 from importlib.resources import files
-import re
-import os
+
 import jieba
-from pypinyin import lazy_pinyin, Style, load_phrases_dict
 import torch
+from pypinyin import lazy_pinyin, Style, load_phrases_dict
 from pypinyin.constants import PHRASES_DICT
 from torch.nn.utils.rnn import pad_sequence
+
+from third_party.text.gptsovits_text_front import convert_char_to_pinyin_sovits_f5
 
 
 # seed everything
@@ -182,7 +185,7 @@ dict_loaded = False
 
 
 # 中文混合输入转拼音，汉字可以混入拼音
-def convert_zh_mix_char_to_pinyin(text_list, pinyin_dict_path=None, polyphone=True):
+def convert_char_to_pinyin_big_dict(text_list, pinyin_dict_path=None, polyphone=True):
     if jieba.dt.initialized is False:
         jieba.default_logger.setLevel(50)  # CRITICAL
         jieba.initialize()
@@ -270,14 +273,14 @@ def convert_zh_mix_char_to_pinyin(text_list, pinyin_dict_path=None, polyphone=Tr
 
     return final_text_list
 
+def is_chinese(c):
+    return (
+        "\u3100" <= c <= "\u9fff"  # common chinese characters
+    )
 
-def convert_char_to_pinyin(text_list, pinyin_dict_path=None, polyphone=True):
-    if any(is_chinese(c) for c in text_list[0]):
-        return convert_zh_mix_char_to_pinyin(text_list, pinyin_dict_path)
-
-    if jieba.dt.initialized is False:
-        jieba.default_logger.setLevel(50)  # CRITICAL
-        jieba.initialize()
+def convert_char_to_pinyin(text_list, polyphone=True):
+    if any(is_chinese(c) for c in text_list[0]):   # gpt sovits前端
+        return convert_char_to_pinyin_sovits_f5(text_list)
 
     final_text_list = []
     custom_trans = str.maketrans(

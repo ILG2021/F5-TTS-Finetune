@@ -42,7 +42,10 @@ dependencies = [
     "vocos",
     "wandb",
     "x_transformers>=1.31.14",
-    "faster_whisper"
+    "faster_whisper",
+    "fast_langdetect",
+    "tensorboard",
+    "split_lang"
 ]
 
 [project.optional-dependencies]
@@ -50,7 +53,6 @@ eval = [
     "faster_whisper==0.10.1",
     "funasr",
     "jiwer",
-    "modelscope",
     "zhconv",
     "zhon",
 ]
