@@ -442,6 +442,10 @@ class ToneSandhi:
             "咖喱",
             "扫把",
             "惦记",
+            "比量",
+            "端详",
+            "德性",
+            "事故"
         }
         self.must_not_neural_tone_words = {
             "男子",
@@ -484,6 +488,7 @@ class ToneSandhi:
             "算子",
             "家家户户",
             "青青",
+            "独生子",
         }
         self.punc = "：，；。？！“”‘’':,;.?!"
 
@@ -496,17 +501,23 @@ class ToneSandhi:
         # reduplication words for n. and v. e.g. 奶奶, 试试, 旺旺
         for j, item in enumerate(word):
             if (
-                j - 1 >= 0
-                and item == word[j - 1]
-                and pos[0] in {"n", "v", "a"}
-                and word not in self.must_not_neural_tone_words
+                    j - 1 >= 0
+                    and item == word[j - 1]
+                    and pos[0] in {"n", "v", "a"}
+                    and word not in self.must_not_neural_tone_words
             ):
                 finals[j] = finals[j][:-1] + "5"
         ge_idx = word.find("个")
         if len(word) >= 1 and word[-1] in "吧呢哈啊呐噻嘛吖嗨呐哦哒额滴哩哟喽啰耶喔诶":
             finals[-1] = finals[-1][:-1] + "5"
-        elif len(word) >= 1 and word[-1] in "的地得":
-            finals[-1] = finals[-1][:-1] + "5"
+        elif len(word) > 1 and word[-1] in "的地得":
+            # 增加保护逻辑：
+            # 如果是“得”，且发音是 dei (表示必须)，则保留原调，不转轻声。
+            # finals[-1] 形如 "e2" 或 "ei3"
+            if word[-1] == "得" and finals[-1].startswith("ei"):
+                pass  # 保留原状
+            else:
+                finals[-1] = finals[-1][:-1] + "5"
         # e.g. 走了, 看着, 去过
         elif len(word) == 1 and word in "了着过" and pos in {"ul", "uz", "ug"}:
             finals[-1] = finals[-1][:-1] + "5"
@@ -514,13 +525,17 @@ class ToneSandhi:
             finals[-1] = finals[-1][:-1] + "5"
         # e.g. 桌上, 地下, 家里
         elif len(word) > 1 and word[-1] in "上下里" and pos in {"s", "l", "f"}:
-            finals[-1] = finals[-1][:-1] + "5"
+            # 保护“之下”、“之上”这种正式词，不读轻声
+            if word[0] == "之":
+                pass
+            else:
+                finals[-1] = finals[-1][:-1] + "5"
         # e.g. 上来, 下去
         elif len(word) > 1 and word[-1] in "来去" and word[-2] in "上下进出回过起开":
             finals[-1] = finals[-1][:-1] + "5"
         # 个做量词
         elif (
-            ge_idx >= 1 and (word[ge_idx - 1].isnumeric() or word[ge_idx - 1] in "几有两半多各整每做是")
+                ge_idx >= 1 and (word[ge_idx - 1].isnumeric() or word[ge_idx - 1] in "几有两半多各整每做是")
         ) or word == "个":
             finals[ge_idx] = finals[ge_idx][:-1] + "5"
         else:
@@ -528,7 +543,7 @@ class ToneSandhi:
                 finals[-1] = finals[-1][:-1] + "5"
 
         word_list = self._split_word(word)
-        finals_list = [finals[: len(word_list[0])], finals[len(word_list[0]) :]]
+        finals_list = [finals[: len(word_list[0])], finals[len(word_list[0]):]]
         for i, word in enumerate(word_list):
             # conventional neural in Chinese
             if word in self.must_neural_tone_words or word[-2:] in self.must_neural_tone_words:
@@ -537,13 +552,13 @@ class ToneSandhi:
         return finals
 
     def _bu_sandhi(self, word: str, finals: List[str]) -> List[str]:
-        # e.g. 看不懂
-        if len(word) == 3 and word[1] == "不":
-            finals[1] = finals[1][:-1] + "5"
-        else:
-            for i, char in enumerate(word):
-                # "不" before tone4 should be bu2, e.g. 不怕
-                if char == "不" and i + 1 < len(word) and finals[i + 1][-1] == "4":
+        for i, char in enumerate(word):
+            if char == "不":
+                # 1. “不”夹在中间（不论词长），统统轻声，例如：看不懂、弄不明白
+                if i > 0 and i < len(word) - 1:
+                    finals[i] = finals[i][:-1] + "5"
+                # 2. “不”在词首或句首时，后面跟四声要变调为二声，例如：不怕、不要
+                elif i + 1 < len(word) and finals[i + 1][-1] == "4":
                     finals[i] = finals[i][:-1] + "2"
         return finals
 
@@ -576,7 +591,7 @@ class ToneSandhi:
         first_subword = word_list[0]
         first_begin_idx = word.find(first_subword)
         if first_begin_idx == 0:
-            second_subword = word[len(first_subword) :]
+            second_subword = word[len(first_subword):]
             new_word_list = [first_subword, second_subword]
         else:
             second_subword = word[: -len(first_subword)]
@@ -597,7 +612,7 @@ class ToneSandhi:
                 elif len(word_list[0]) == 1:
                     finals[1] = finals[1][:-1] + "2"
             else:
-                finals_list = [finals[: len(word_list[0])], finals[len(word_list[0]) :]]
+                finals_list = [finals[: len(word_list[0])], finals[len(word_list[0]):]]
                 if len(finals_list) == 2:
                     for i, sub in enumerate(finals_list):
                         # e.g. 所有/人
@@ -605,10 +620,10 @@ class ToneSandhi:
                             finals_list[i][0] = finals_list[i][0][:-1] + "2"
                         # e.g. 好/喜欢
                         elif (
-                            i == 1
-                            and not self._all_tone_three(sub)
-                            and finals_list[i][0][-1] == "3"
-                            and finals_list[0][-1][-1] == "3"
+                                i == 1
+                                and not self._all_tone_three(sub)
+                                and finals_list[i][0][-1] == "3"
+                                and finals_list[0][-1][-1] == "3"
                         ):
                             finals_list[0][-1] = finals_list[0][-1][:-1] + "2"
                         finals = sum(finals_list, [])
@@ -685,10 +700,10 @@ class ToneSandhi:
         merge_last = [False] * len(seg)
         for i, (word, pos) in enumerate(seg):
             if (
-                i - 1 >= 0
-                and self._all_tone_three(sub_finals_list[i - 1])
-                and self._all_tone_three(sub_finals_list[i])
-                and not merge_last[i - 1]
+                    i - 1 >= 0
+                    and self._all_tone_three(sub_finals_list[i - 1])
+                    and self._all_tone_three(sub_finals_list[i])
+                    and not merge_last[i - 1]
             ):
                 # if the last word is reduplication, not merge, because reduplication need to be _neural_sandhi
                 if not self._is_reduplication(seg[i - 1][0]) and len(seg[i - 1][0]) + len(seg[i][0]) <= 3:
@@ -714,10 +729,10 @@ class ToneSandhi:
         merge_last = [False] * len(seg)
         for i, (word, pos) in enumerate(seg):
             if (
-                i - 1 >= 0
-                and sub_finals_list[i - 1][-1][-1] == "3"
-                and sub_finals_list[i][0][-1] == "3"
-                and not merge_last[i - 1]
+                    i - 1 >= 0
+                    and sub_finals_list[i - 1][-1][-1] == "3"
+                    and sub_finals_list[i][0][-1] == "3"
+                    and not merge_last[i - 1]
             ):
                 # if the last word is reduplication, not merge, because reduplication need to be _neural_sandhi
                 if not self._is_reduplication(seg[i - 1][0]) and len(seg[i - 1][0]) + len(seg[i][0]) <= 3:

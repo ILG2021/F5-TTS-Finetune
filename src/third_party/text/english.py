@@ -22,7 +22,6 @@ CMU_DICT_HOT_PATH = os.path.join(current_file_path, "engdict-hot.rep")
 CACHE_PATH = os.path.join(current_file_path, "engdict_cache.pickle")
 NAMECACHE_PATH = os.path.join(current_file_path, "namedict_cache.pickle")
 
-
 # 适配中文及 g2p_en 标点
 rep_map = {
     "[;:：，；]": ",",
@@ -31,7 +30,6 @@ rep_map = {
     "！": "!",
     "？": "?",
 }
-
 
 arpa = {
     "AH0",
@@ -154,7 +152,7 @@ def read_dict():
 
 def read_dict_new():
     g2p_dict = {}
-    with open(CMU_DICT_PATH) as f:
+    with open(CMU_DICT_PATH, 'r', encoding='utf-8') as f:
         line = f.readline()
         line_index = 1
         while line:

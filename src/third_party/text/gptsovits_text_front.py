@@ -1,5 +1,8 @@
+import os
 import sys
 import logging
+
+import jieba_fast
 
 # 依赖包: jieba, pypinyin, cn2an, transformers, nltk, wordsegment
 
@@ -28,11 +31,9 @@ except ImportError as e:
     print("【严重错误】无法加载 GPT-SoVITS 模块！请确保你在 GPT-SoVITS 目录下运行，或已设置 PYTHONPATH。")
     raise e
 
-# 静默 jieba 日志
-import jieba
-
-jieba.setLogLevel(logging.CRITICAL)
-
+current_file_path = os.path.dirname(__file__)
+JIEBA_DICT_PATH = os.path.join(current_file_path, "jieba_dict.txt")
+jieba_fast.load_userdict(JIEBA_DICT_PATH)
 
 def convert_char_to_pinyin_sovits_f5(text_list, polyphone=True, f5_vocab=None):
     """
@@ -110,12 +111,14 @@ def convert_char_to_pinyin_sovits_f5(text_list, polyphone=True, f5_vocab=None):
         # 3. G2PW 预测
         if is_g2pw and polyphone:
             raw_pinyins = g2pw.lazy_pinyin(text, neutral_tone_with_five=True, style=Style.TONE3)
+            print("g2pw:", raw_pinyins)
         else:
             from pypinyin import lazy_pinyin as pyp_lazy
             raw_pinyins = pyp_lazy(text, style=Style.TONE3, neutral_tone_with_five=True)
 
         ptr = 0
         for word, pos in seg_cut:
+            print("word:", word+":"+pos)
             word_len = len(word)
             current_pinyins = raw_pinyins[ptr: ptr + word_len]
             ptr += word_len
@@ -190,7 +193,7 @@ def convert_char_to_pinyin_sovits_f5(text_list, polyphone=True, f5_vocab=None):
         # [逻辑分支 B] 常规多语种切分模式 (inference_webui.py 核心逻辑)
         raw_text = raw_text.translate(custom_trans).strip()
         segments = LangSegmenter.getTexts(raw_text)
-
+        print("segments:", segments)
         for seg in segments:
             lang = seg['lang']
             content = seg['text']

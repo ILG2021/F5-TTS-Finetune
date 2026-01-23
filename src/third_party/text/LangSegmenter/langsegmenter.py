@@ -1,228 +1,98 @@
 import logging
-import os
 import re
+from pathlib import Path
 
 # jieba静音
 import jieba
 
 jieba.setLogLevel(logging.CRITICAL)
 
-# 更改fast_langdetect大模型位置
-from pathlib import Path
+# 加载 fast_langdetect 和 LangSplitter
 import fast_langdetect
-
-os.makedirs(Path(__file__).parent.parent.parent / "pretrained_models" / "fast_langdetect", exist_ok=True)
-fast_langdetect.infer._default_detector = fast_langdetect.infer.LangDetector(fast_langdetect.infer.LangDetectConfig(
-    cache_dir=Path(__file__).parent.parent.parent / "pretrained_models" / "fast_langdetect"))
-
 from split_lang import LangSplitter
 
-
-def full_en(text):
-    pattern = r'^(?=.*[A-Za-z])[A-Za-z0-9\s\u0020-\u007E\u2000-\u206F\u3000-\u303F\uFF00-\uFFEF]+$'
-    return bool(re.match(pattern, text))
-
-
-def full_cjk(text):
-    # 来自wiki
-    cjk_ranges = [
-        (0x4E00, 0x9FFF),  # CJK Unified Ideographs
-        (0x3400, 0x4DB5),  # CJK Extension A
-        (0x20000, 0x2A6DD),  # CJK Extension B
-        (0x2A700, 0x2B73F),  # CJK Extension C
-        (0x2B740, 0x2B81F),  # CJK Extension D
-        (0x2B820, 0x2CEAF),  # CJK Extension E
-        (0x2CEB0, 0x2EBEF),  # CJK Extension F
-        (0x30000, 0x3134A),  # CJK Extension G
-        (0x31350, 0x323AF),  # CJK Extension H
-        (0x2EBF0, 0x2EE5D),  # CJK Extension H
-    ]
-
-    pattern = r'[0-9、-〜。！？.!?… /]+$'
-
-    cjk_text = ""
-    for char in text:
-        code_point = ord(char)
-        in_cjk = any(start <= code_point <= end for start, end in cjk_ranges)
-        if in_cjk or re.match(pattern, char):
-            cjk_text += char
-    return cjk_text
-
-
-def split_jako(tag_lang, item):
-    if tag_lang == "ja":
-        pattern = r"([\u3041-\u3096\u3099\u309A\u30A1-\u30FA\u30FC]+(?:[0-9、-〜。！？.!?… ]+[\u3041-\u3096\u3099\u309A\u30A1-\u30FA\u30FC]*)*)"
-    else:
-        pattern = r"([\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]+(?:[0-9、-〜。！？.!?… ]+[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]*)*)"
-
-    lang_list: list[dict] = []
-    tag = 0
-    for match in re.finditer(pattern, item['text']):
-        if match.start() > tag:
-            lang_list.append({'lang': item['lang'], 'text': item['text'][tag:match.start()]})
-
-        tag = match.end()
-        lang_list.append({'lang': tag_lang, 'text': item['text'][match.start():match.end()]})
-
-    if tag < len(item['text']):
-        lang_list.append({'lang': item['lang'], 'text': item['text'][tag:len(item['text'])]})
-
-    return lang_list
-
-
-def merge_lang(lang_list, item):
-    if lang_list and item['lang'] == lang_list[-1]['lang']:
-        lang_list[-1]['text'] += item['text']
-    else:
-        lang_list.append(item)
-    return lang_list
+# 预配置大模型权重路径
+try:
+    fast_langdetect.infer._default_detector = fast_langdetect.infer.LangDetector(fast_langdetect.infer.LangDetectConfig(
+        cache_dir=Path(__file__).parent.parent.parent / "pretrained_models" / "fast_langdetect"))
+except:
+    pass
 
 
 class LangSegmenter():
-    # 默认过滤器, 基于gsv目前四种语言
+    # 基础映射表
     DEFAULT_LANG_MAP = {
         "zh": "zh",
-        "yue": "zh",  # 粤语
-        "wuu": "zh",  # 吴语
+        "yue": "zh",
         "zh-cn": "zh",
-        "zh-tw": "x",  # 繁体设置为x
+        "zh-tw": "zh",
         "ko": "ko",
         "ja": "ja",
         "en": "en",
     }
 
+    @staticmethod
+    def _has_kana(text):
+        """判断是否有日文假名"""
+        return bool(re.search(r'[\u3040-\u30ff]', text))
+
+    @staticmethod
+    def _has_hangul(text):
+        """判断是否有韩文谚文"""
+        return bool(re.search(r'[\uac00-\ud7af\u1100-\u11ff]', text))
+
+    @staticmethod
     def getTexts(text, default_lang=""):
+        if default_lang:
+            return [{"lang": default_lang, "text": text}]
+
+        if not text:
+            return []
+
+        # 1. 调用原始探测并按语言切分
         lang_splitter = LangSplitter(lang_map=LangSegmenter.DEFAULT_LANG_MAP)
-        lang_splitter.merge_across_digit = False
+        lang_splitter.merge_across_digit = False  # 数字不作为独立段
         substr = lang_splitter.split_by_lang(text=text)
 
-        lang_list: list[dict] = []
+        # 2. 语种修正：应用“一票否决权”
+        raw_segments = []
+        for item in substr:
+            lang = item.lang
+            content = item.text
 
-        have_num = False
+            # --- 中日纠错 ---
+            if lang == "ja":
+                if not LangSegmenter._has_kana(content):
+                    lang = "zh"  # 只有汉字没假名，判定为中文误报
 
-        for _, item in enumerate(substr):
-            dict_item = {'lang': item.lang, 'text': item.text}
+            # --- 中韩纠错 ---
+            if lang == "ko":
+                if not LangSegmenter._has_hangul(content):
+                    lang = "zh"  # 只有汉字没谚文，判定为中文误报
 
-            if dict_item['lang'] == 'digit':
-                if default_lang != "":
-                    dict_item['lang'] = default_lang
-                else:
-                    have_num = True
-                lang_list = merge_lang(lang_list, dict_item)
-                continue
+            # --- 后期清理 ---
+            # 如果是繁体标记(x)或未知，一律归入 zh
+            if lang not in ["zh", "en"]:
+                lang = "zh"
 
-            # 处理短英文被识别为其他语言的问题
-            if full_en(dict_item['text']):
-                dict_item['lang'] = 'en'
-                lang_list = merge_lang(lang_list, dict_item)
-                continue
+            raw_segments.append({'lang': lang, 'text': content})
 
-            if default_lang != "":
-                dict_item['lang'] = default_lang
-                lang_list = merge_lang(lang_list, dict_item)
-                continue
+        # 3. 核心步骤：重新聚合合并 (Lang Merger)
+        # 将修正后语种相同的相邻段落合并成一段
+        final_list = []
+        for seg in raw_segments:
+            if final_list and final_list[-1]['lang'] == seg['lang']:
+                # 语种相同，追加文本，不切分
+                final_list[-1]['text'] += seg['text']
             else:
-                # 处理非日语夹日文的问题(不包含CJK)
-                ja_list: list[dict] = []
-                if dict_item['lang'] != 'ja':
-                    ja_list = split_jako('ja', dict_item)
+                # 语种不同，创建新段
+                final_list.append(seg)
 
-                if not ja_list:
-                    ja_list.append(dict_item)
-
-                # 处理非韩语夹韩语的问题(不包含CJK)
-                ko_list: list[dict] = []
-                temp_list: list[dict] = []
-                for _, ko_item in enumerate(ja_list):
-                    if ko_item["lang"] != 'ko':
-                        ko_list = split_jako('ko', ko_item)
-
-                    if ko_list:
-                        temp_list.extend(ko_list)
-                    else:
-                        temp_list.append(ko_item)
-
-                # 未存在非日韩文夹日韩文
-                if len(temp_list) == 1:
-                    # 未知语言检查是否为CJK
-                    if dict_item['lang'] == 'x':
-                        cjk_text = full_cjk(dict_item['text'])
-                        if cjk_text:
-                            dict_item = {'lang': 'zh', 'text': cjk_text}
-                            lang_list = merge_lang(lang_list, dict_item)
-                        else:
-                            lang_list = merge_lang(lang_list, dict_item)
-                        continue
-                    else:
-                        lang_list = merge_lang(lang_list, dict_item)
-                        continue
-
-                # 存在非日韩文夹日韩文
-                for _, temp_item in enumerate(temp_list):
-                    # 未知语言检查是否为CJK
-                    if temp_item['lang'] == 'x':
-                        cjk_text = full_cjk(temp_item['text'])
-                        if cjk_text:
-                            lang_list = merge_lang(lang_list, {'lang': 'zh', 'text': cjk_text})
-                        else:
-                            lang_list = merge_lang(lang_list, temp_item)
-                    else:
-                        lang_list = merge_lang(lang_list, temp_item)
-
-        # 有数字
-        if have_num:
-            temp_list = lang_list
-            lang_list = []
-            for i, temp_item in enumerate(temp_list):
-                if temp_item['lang'] == 'digit':
-                    if default_lang:
-                        temp_item['lang'] = default_lang
-                    elif lang_list and i == len(temp_list) - 1:
-                        temp_item['lang'] = lang_list[-1]['lang']
-                    elif not lang_list and i < len(temp_list) - 1:
-                        temp_item['lang'] = temp_list[1]['lang']
-                    elif lang_list and i < len(temp_list) - 1:
-                        if lang_list[-1]['lang'] == temp_list[i + 1]['lang']:
-                            temp_item['lang'] = lang_list[-1]['lang']
-                        elif lang_list[-1]['text'][-1] in [",", ".", "!", "?", "，", "。", "！", "？"]:
-                            temp_item['lang'] = temp_list[i + 1]['lang']
-                        elif temp_list[i + 1]['text'][0] in [",", ".", "!", "?", "，", "。", "！", "？"]:
-                            temp_item['lang'] = lang_list[-1]['lang']
-                        elif temp_item['text'][-1] in ["。", "."]:
-                            temp_item['lang'] = lang_list[-1]['lang']
-                        elif len(lang_list[-1]['text']) >= len(temp_list[i + 1]['text']):
-                            temp_item['lang'] = lang_list[-1]['lang']
-                        else:
-                            temp_item['lang'] = temp_list[i + 1]['lang']
-                    else:
-                        temp_item['lang'] = 'zh'
-
-                lang_list = merge_lang(lang_list, temp_item)
-
-        # 筛X
-        temp_list = lang_list
-        lang_list = []
-        for _, temp_item in enumerate(temp_list):
-            if temp_item['lang'] == 'x':
-                if lang_list:
-                    temp_item['lang'] = lang_list[-1]['lang']
-                elif len(temp_list) > 1:
-                    temp_item['lang'] = temp_list[1]['lang']
-                else:
-                    temp_item['lang'] = 'zh'
-
-            lang_list = merge_lang(lang_list, temp_item)
-
-        return lang_list
+        return final_list
 
 
 if __name__ == "__main__":
-    text = "MyGO?,你也喜欢まいご吗？"
-    print(LangSegmenter.getTexts(text))
-
-    text = "ねえ、知ってる？最近、僕は天文学を勉強してるんだ。君の瞳が星空みたいにキラキラしてるからさ。"
-    print(LangSegmenter.getTexts(text))
-
-    text = "当时ThinkPad T60刚刚发布，一同推出的还有一款名为Advanced Dock的扩展坞配件。这款扩展坞通过连接T60底部的插槽，扩展出包括PCIe在内的一大堆接口，并且自带电源，让T60可以安装桌面显卡来提升性能。"
-    print(LangSegmenter.getTexts(text, "zh"))
+    # 测试纠错与合并
+    # 这里的“测试”二字常被误判为日语，看它能否粘回前半句
+    text = "这是一个中文测试，Hello, 这是一个 mixed text。"
     print(LangSegmenter.getTexts(text))
