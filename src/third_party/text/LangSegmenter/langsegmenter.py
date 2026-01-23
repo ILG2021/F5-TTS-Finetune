@@ -1,46 +1,11 @@
-import logging
 import re
-from pathlib import Path
+import logging
 
-# jieba静音
-import jieba
 
-jieba.setLogLevel(logging.CRITICAL)
-
-# 加载 fast_langdetect 和 LangSplitter
-import fast_langdetect
-from split_lang import LangSplitter
-
-# 预配置大模型权重路径
-try:
-    fast_langdetect.infer._default_detector = fast_langdetect.infer.LangDetector(fast_langdetect.infer.LangDetectConfig(
-        cache_dir=Path(__file__).parent.parent.parent / "pretrained_models" / "fast_langdetect"))
-except:
-    pass
-
+# 彻底弃用 fast_langdetect 和 split_lang
+# 仅保留 jieba（用于后续分词，不在这里用）
 
 class LangSegmenter():
-    # 基础映射表
-    DEFAULT_LANG_MAP = {
-        "zh": "zh",
-        "yue": "zh",
-        "zh-cn": "zh",
-        "zh-tw": "zh",
-        "ko": "ko",
-        "ja": "ja",
-        "en": "en",
-    }
-
-    @staticmethod
-    def _has_kana(text):
-        """判断是否有日文假名"""
-        return bool(re.search(r'[\u3040-\u30ff]', text))
-
-    @staticmethod
-    def _has_hangul(text):
-        """判断是否有韩文谚文"""
-        return bool(re.search(r'[\uac00-\ud7af\u1100-\u11ff]', text))
-
     @staticmethod
     def getTexts(text, default_lang=""):
         if default_lang:
@@ -49,50 +14,90 @@ class LangSegmenter():
         if not text:
             return []
 
-        # 1. 调用原始探测并按语言切分
-        lang_splitter = LangSplitter(lang_map=LangSegmenter.DEFAULT_LANG_MAP)
-        lang_splitter.merge_across_digit = False  # 数字不作为独立段
-        substr = lang_splitter.split_by_lang(text=text)
+        # --- 核心逻辑：基于字符特征的物理切分 ---
 
-        # 2. 语种修正：应用“一票否决权”
-        raw_segments = []
-        for item in substr:
-            lang = item.lang
-            content = item.text
+        # 1. 定义字符属性判定函数
+        def get_char_lang(char):
+            # 判英文字母 (A-Z, a-z)
+            if 'a' <= char <= 'z' or 'A' <= char <= 'Z':
+                return 'en'
+            # 判汉字 (CJK 统一汉字范围)
+            if '\u4e00' <= char <= '\u9fff' or '\u3400' <= char <= '\u4dbf':
+                return 'zh'
+            # 判数字
+            if '0' <= char <= '9':
+                return 'digit'
+            # 判空白
+            if char.isspace():
+                return 'space'
+            # 其余视为标点/特殊符号
+            return 'other'
 
-            # --- 中日纠错 ---
-            if lang == "ja":
-                if not LangSegmenter._has_kana(content):
-                    lang = "zh"  # 只有汉字没假名，判定为中文误报
+        # 2. 状态机切分
+        segments = []
+        if not text:
+            return []
 
-            # --- 中韩纠错 ---
-            if lang == "ko":
-                if not LangSegmenter._has_hangul(content):
-                    lang = "zh"  # 只有汉字没谚文，判定为中文误报
+        current_lang = 'zh'  # 默认初始状态
+        current_text = ""
 
-            # --- 后期清理 ---
-            # 如果是繁体标记(x)或未知，一律归入 zh
-            if lang not in ["zh", "en"]:
-                lang = "zh"
+        for char in text:
+            ctype = get_char_lang(char)
 
-            raw_segments.append({'lang': lang, 'text': content})
+            # 决策逻辑：
+            # - en/zh/digit 相互触发切换
+            # - space 和 other (标点) 采取 "就近原则" (粘附在前面的语块上)
 
-        # 3. 核心步骤：重新聚合合并 (Lang Merger)
-        # 将修正后语种相同的相邻段落合并成一段
+            if ctype in ['zh', 'en', 'digit']:
+                # 如果当前块是空的，或者当前字符类型与块类型一致，或者是数字粘附
+                if not current_text:
+                    current_lang = ctype
+                    current_text = char
+                elif ctype == current_lang:
+                    current_text += char
+                elif ctype == 'digit' and current_lang in ['zh', 'en']:
+                    # 数字不触发切换，直接粘附在之前的语种后
+                    current_text += char
+                else:
+                    # 触发切换
+                    segments.append({'lang': current_lang, 'text': current_text})
+                    current_lang = ctype
+                    current_text = char
+            else:
+                # 标点和空格：不触发切换，直接跟着前面的跑
+                if not current_text:
+                    current_text = char
+                else:
+                    current_text += char
+
+        if current_text:
+            segments.append({'lang': current_lang, 'text': current_text})
+
+        # 3. 结果精修
         final_list = []
-        for seg in raw_segments:
-            if final_list and final_list[-1]['lang'] == seg['lang']:
-                # 语种相同，追加文本，不切分
+        for seg in segments:
+            # 规范化标记：将 digit 和 zh 统称为 zh (因为中文流程会处理数字)
+            l = 'en' if seg['lang'] == 'en' else 'zh'
+
+            # 简单的段合并
+            if final_list and final_list[-1]['lang'] == l:
                 final_list[-1]['text'] += seg['text']
             else:
-                # 语种不同，创建新段
-                final_list.append(seg)
+                final_list.append({'lang': l, 'text': seg['text']})
 
+        # 4. 后处理：处理边缘情况（例如纯标点块的语种归属）
+        # 如果一段文字全是标点，默认让它跟着前面的语种。
         return final_list
 
 
 if __name__ == "__main__":
-    # 测试纠错与合并
-    # 这里的“测试”二字常被误判为日语，看它能否粘回前半句
-    text = "这是一个中文测试，Hello, 这是一个 mixed text。"
-    print(LangSegmenter.getTexts(text))
+    # 测试那些 AI 处理不好的案例
+    test_cases = [
+        "什么餐都行，AI什么都会做。",
+        "这条WiFi信号不行啊。",
+        "123,这是数字开头。",
+        "Xi'an is a city. 西安是个城市。",
+    ]
+    for t in test_cases:
+        res = LangSegmenter.getTexts(t)
+        print(f"Input: {t}\nOutput: {res}\n")

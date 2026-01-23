@@ -159,7 +159,7 @@ def convert_char_to_pinyin_sovits_f5(text_list, polyphone=True, f5_vocab=None):
         """处理英文块：规范化 (Number Expand) -> 拆字符"""
         # 1. 英文规范化 (No.1 -> Number one) - 这是 GPT-SoVITS 区别于 F5 原版的重要细节
         text = sovits_en.text_normalize(text)
-
+        print("text:", text)
         # 2. 简单拆分与空格处理
         # GPT-SoVITS normalize 后可能是 "Number one"，按空格切分单词
         words = text.split(" ")

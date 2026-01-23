@@ -281,6 +281,10 @@ def is_chinese(c):
 def convert_char_to_pinyin(text_list, polyphone=True):
     if any(is_chinese(c) for c in text_list[0]):   # gpt sovits前端
         return convert_char_to_pinyin_sovits_f5(text_list)
+    else:
+        return convert_char_to_pinyin_old(text_list)
+
+def convert_char_to_pinyin_old(text_list, polyphone=True):
 
     final_text_list = []
     custom_trans = str.maketrans(
