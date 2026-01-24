@@ -31,10 +31,6 @@ except ImportError as e:
     print("【严重错误】无法加载 GPT-SoVITS 模块！请确保你在 GPT-SoVITS 目录下运行，或已设置 PYTHONPATH。")
     raise e
 
-current_file_path = os.path.dirname(__file__)
-JIEBA_DICT_PATH = os.path.join(current_file_path, "jieba_dict.txt")
-jieba_fast.load_userdict(JIEBA_DICT_PATH)
-
 def convert_char_to_pinyin_sovits_f5(text_list, polyphone=True, f5_vocab=None):
     """
     [最终版] GPT-SoVITS 前端 -> F5-TTS 格式转换器

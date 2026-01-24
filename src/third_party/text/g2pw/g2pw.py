@@ -2,30 +2,31 @@
 
 import pickle
 import os
+from importlib.resources import files
 
+import jieba_fast
 from pypinyin.constants import RE_HANS
 from pypinyin.core import Pinyin, Style
 from pypinyin.seg.simpleseg import simple_seg
 from pypinyin.converter import UltimateConverter
-from pypinyin.contrib.tone_convert import to_tone
+from pypinyin.contrib.tone_convert import to_tone, to_tone3
 from .onnx_api import G2PWOnnxConverter
 
 current_file_path = os.path.dirname(__file__)
-CACHE_PATH = os.path.join(current_file_path, "polyphonic.pickle")
 PP_DICT_PATH = os.path.join(current_file_path, "polyphonic.rep")
 PP_FIX_DICT_PATH = os.path.join(current_file_path, "polyphonic-fix.rep")
 
 
 class G2PWPinyin(Pinyin):
     def __init__(
-        self,
-        model_dir="G2PWModel/",
-        model_source=None,
-        enable_non_tradional_chinese=True,
-        v_to_u=False,
-        neutral_tone_with_five=False,
-        tone_sandhi=False,
-        **kwargs,
+            self,
+            model_dir="G2PWModel/",
+            model_source=None,
+            enable_non_tradional_chinese=True,
+            v_to_u=False,
+            neutral_tone_with_five=False,
+            tone_sandhi=False,
+            **kwargs,
     ):
         self._g2pw = G2PWOnnxConverter(
             model_dir=model_dir,
@@ -109,18 +110,8 @@ def _remove_dup_and_empty(lst_list):
     return new_lst_list
 
 
-def cache_dict(polyphonic_dict, file_path):
-    with open(file_path, "wb") as pickle_file:
-        pickle.dump(polyphonic_dict, pickle_file)
-
-
 def get_dict():
-    if os.path.exists(CACHE_PATH):
-        with open(CACHE_PATH, "rb") as pickle_file:
-            polyphonic_dict = pickle.load(pickle_file)
-    else:
-        polyphonic_dict = read_dict()
-        cache_dict(polyphonic_dict, CACHE_PATH)
+    polyphonic_dict = read_dict()
 
     return polyphonic_dict
 
@@ -141,6 +132,16 @@ def read_dict():
             value = eval(value_str.strip())
             polyphonic_dict[key.strip()] = value
             line = f.readline()
+    pypinyin_dict_file = str(files("f5_tts").joinpath(f"dicts/pypinyin.txt"))
+    if os.path.exists(pypinyin_dict_file):
+        for line in open(pypinyin_dict_file, "r", encoding="utf-8").read().split("\n"):
+            if "#" in line:
+                continue
+            parts = line.split(":")
+            if len(parts) == 2:
+                polyphonic_dict[parts[0].strip()] = [to_tone3(item) for item in parts[1].strip().split(" ")]
+    for word in polyphonic_dict:
+        jieba_fast.add_word(word)
     return polyphonic_dict
 
 

@@ -1,9 +1,3 @@
-import re
-import logging
-
-
-# 彻底弃用 fast_langdetect 和 split_lang
-# 仅保留 jieba（用于后续分词，不在这里用）
 
 class LangSegmenter():
     @staticmethod
