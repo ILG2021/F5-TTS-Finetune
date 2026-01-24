@@ -57,7 +57,7 @@ def convert_char_to_pinyin_sovits_f5(text_list, polyphone=True, f5_vocab=None):
     }
 
     # 基础清洗
-    custom_trans = str.maketrans({";": ",", "“": '"', "”": '"', "‘": "'", "’": "'"})
+    custom_trans = str.maketrans({";": ",", "“": '', "”": '', "‘": "'", "’": "'"})
 
     def is_chinese_char(c):
         return "\u3100" <= c <= "\u9fff"

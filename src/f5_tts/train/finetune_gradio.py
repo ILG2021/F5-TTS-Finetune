@@ -760,7 +760,11 @@ def create_metadata(name_project, ch_tokenizer, ch_use_adma_prepare, progress=gr
         sp_line = line.split("|")
         if len(sp_line) < 2:
             continue
-        name_audio, text = sp_line[:2]
+        if len(sp_line) == 2:
+            name_audio, text = sp_line[:2]
+            pinyin = None
+        else:
+            name_audio, text, pinyin = sp_line[:3]
 
         file_audio = get_correct_audio_path(name_audio, path_project_wavs)
 
@@ -786,7 +790,10 @@ def create_metadata(name_project, ch_tokenizer, ch_use_adma_prepare, progress=gr
             continue
 
         text = text.strip()
-        text = convert_char_to_pinyin([text], polyphone=True)[0]
+        if pinyin:
+            text = pinyin
+        else:
+            text = convert_char_to_pinyin([text], polyphone=True)[0]
 
         audio_path_list.append(file_audio)
         duration_list.append(duration)
@@ -1106,12 +1113,15 @@ def vocab_check(project_name, tokenizer_type, vocab_tokenizer_text):
     miss_symbols_keep = {}
     for item in data.split("\n"):
         sp = item.split("|")
-        if len(sp) != 2:
+        if len(sp) < 2:
             continue
 
         text = sp[1].strip()
         if tokenizer_type == "pinyin":
-            text = convert_char_to_pinyin([text], polyphone=True)[0]
+            if len(sp) == 3:
+                text = json.loads(sp[2])
+            else:
+                text = convert_char_to_pinyin([text], polyphone=True)[0]
 
         for t in text:
             has_miss_symbols = False
@@ -1424,7 +1434,7 @@ Skip this step if you have your dataset, metadata.csv, and a folder wavs with al
             mark_info_transcribe = gr.Markdown(
                 """```plaintext    
      Place your 'wavs' folder and 'metadata.csv' file in the '{your_project_name}' directory. 
-                 
+
      my_speak/
      │
      └── dataset/
@@ -1466,8 +1476,8 @@ Skip this step if you have your dataset, metadata.csv, and a folder wavs with al
 Check the vocabulary for fine-tuning Emilia_ZH_EN to ensure all symbols are included. For fine-tuning a new language.
 ```""")
             with gr.Row():
-                vocab_tokenizer_text = gr.Textbox(label="Custom Tokenizer File Path")
-                vocab_pretrain_text = gr.Textbox(label="Custom Pretrain Model File Path（Need prune first）")
+                vocab_pretrain_text = gr.Textbox(label="自定义底模（需要先剪枝）")
+                vocab_tokenizer_text = gr.Textbox(label="自定义词表文件")
             check_button = gr.Button("Check Vocab")
             txt_info_check = gr.Textbox(label="Info", value="")
 
@@ -1525,7 +1535,7 @@ Using the extended model, you can finetune to a new language that is missing sym
      |   ...
      │
      └── metadata.csv
-      
+
      File format metadata.csv:
 
      audio1|text1 or audio1.wav|text1 or your_path/audio1.wav|text1 
