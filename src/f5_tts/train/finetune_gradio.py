@@ -1171,7 +1171,7 @@ def get_random_sample_transcribe(project_name):
     list_data = []
     for item in data.split("\n"):
         sp = item.split("|")
-        if len(sp) != 2:
+        if len(sp) < 2:
             continue
 
         # fixed audio when it is absolute
