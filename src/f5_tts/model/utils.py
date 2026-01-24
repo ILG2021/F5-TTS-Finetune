@@ -288,7 +288,7 @@ def convert_char_to_pinyin_old(text_list, polyphone=True):
 
     final_text_list = []
     custom_trans = str.maketrans(
-        {";": ",", "“": '"', "”": '"', "‘": "'", "’": "'"}
+        {";": ",", "；":"，",  "“": '"', "”": '"', "‘": "'", "’": "'"}
     )  # add custom trans here, to address oov
 
     for text in text_list:
