@@ -1605,7 +1605,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 save_per_updates = gr.Number(
                     label="Save per Updates",
                     info="Save intermediate checkpoints every N updates",
-                    minimum=10,
+                    minimum=50000,
                 )
                 keep_last_n_checkpoints = gr.Number(
                     label="Keep Last N Checkpoints",
@@ -1613,16 +1613,17 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     precision=0,
                     info="-1 to keep all, 0 to not save intermediate, > 0 to keep last N",
                     minimum=-1,
+                    value=10
                 )
                 last_per_updates = gr.Number(
                     label="Last per Updates",
                     info="Save latest checkpoint with suffix _last.pt every N updates",
-                    minimum=10,
+                    minimum=2000,
                 )
                 gr.Radio(label="")  # placeholder
 
             with gr.Row():
-                ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")
+                ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer", value=True)
                 ch_use_adma = gr.Checkbox(label="启动A-DMA")
                 mixed_precision = gr.Radio(label="Mixed Precision", choices=["none", "fp16", "bf16"], value="fp16")
                 cd_logger = gr.Radio(label="Logger", choices=["none", "wandb", "tensorboard"], value="tensorboard")
@@ -1676,7 +1677,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 ch_8bit_adam.value = bnb_optimizer_value
                 ch_use_adma.value = ch_use_adma_value
 
-            ch_stream = gr.Checkbox(label="Stream Output Experiment", value=True)
+            ch_stream = gr.Checkbox(label="Stream Output Experiment", value=False)
             txt_info_train = gr.Textbox(label="Info", value="")
 
             list_audios, select_audio = get_audio_project(projects_selelect, False)
