@@ -194,9 +194,9 @@ def convert_char_to_pinyin_big_dict(text_list, pinyin_dict_path=None, polyphone=
     if not dict_loaded:
         dict_loaded = True
 
-        if pinyin_dict_path and os.path.exists(pinyin_dict_path):    # 推理的时候放在权重文件夹指定
+        if pinyin_dict_path and os.path.exists(pinyin_dict_path):  # 推理的时候放在权重文件夹指定
             pypinyin_dict_file = pinyin_dict_path
-        else:                                                        # 微调的时候放在固定dicts文件夹
+        else:  # 微调的时候放在固定dicts文件夹
             pypinyin_dict_file = str(files("f5_tts").joinpath(f"dicts/pypinyin.txt"))
         if os.path.exists(pypinyin_dict_file):
             print(f"加载pypinyin词典{pypinyin_dict_file}")
@@ -273,22 +273,68 @@ def convert_char_to_pinyin_big_dict(text_list, pinyin_dict_path=None, polyphone=
 
     return final_text_list
 
+
 def is_chinese(c):
     return (
-        "\u3100" <= c <= "\u9fff"  # common chinese characters
+            "\u3100" <= c <= "\u9fff"  # common chinese characters
     )
 
+
+def convert_char_to_pinyin_sovits_f5_wrapper(text_list):
+    final_text_list = []
+    custom_trans = str.maketrans({";": ",", "“": '', "”": '', "‘": "'", "’": "'"})
+
+    def has_toned_pinyin(text):
+        return "<" in text and ">" in text
+
+    def split_by_brackets(text):
+        """按尖括号分割字符串"""
+        result = re.split(r'<|>', text)
+        # 过滤空字符串
+        return [s for s in result if s]
+
+    def process_mixed_segment(text):
+        """处理包含中文和拼音的混合文本段"""
+        char_list = []
+        parts = split_by_brackets(text)
+        for part in parts:
+            print("part:", part)
+            if any(is_chinese(c) for c in part):
+                char_list.extend(convert_char_to_pinyin_sovits_f5([part])[0])
+            else:
+                char_list.append(" ")
+                char_list.append(part)
+        return char_list
+
+    for text in text_list:
+        text = text.translate(custom_trans)
+
+        # 检查文本是否包含带声调的拼音
+        has_pinyin = has_toned_pinyin(text)
+
+        if has_pinyin:
+            # 检测到带声调拼音，将所有单词都当作拼音处理
+            char_list = process_mixed_segment(text)
+        else:
+            # 不包含拼音，使用原有逻辑
+            char_list = convert_char_to_pinyin_sovits_f5([text])[0]
+
+        final_text_list.append(char_list)
+
+    return final_text_list
+
+
 def convert_char_to_pinyin(text_list, polyphone=True):
-    if any(is_chinese(c) for c in text_list[0]):   # gpt sovits前端
-        return convert_char_to_pinyin_sovits_f5(text_list)
+    if any(is_chinese(c) for c in text_list[0]):  # gpt sovits前端
+        return convert_char_to_pinyin_sovits_f5_wrapper(text_list)
     else:
         return convert_char_to_pinyin_old(text_list)
 
-def convert_char_to_pinyin_old(text_list, polyphone=True):
 
+def convert_char_to_pinyin_old(text_list, polyphone=True):
     final_text_list = []
     custom_trans = str.maketrans(
-        {";": ",", "；":"，",  "“": '"', "”": '"', "‘": "'", "’": "'"}
+        {";": ",", "；": "，", "“": '"', "”": '"', "‘": "'", "’": "'"}
     )  # add custom trans here, to address oov
 
     for text in text_list:

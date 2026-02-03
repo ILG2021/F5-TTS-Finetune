@@ -52,9 +52,6 @@ def convert_char_to_pinyin_sovits_f5(text_list, polyphone=True, f5_vocab=None):
         "^": ","
     }
 
-    # 基础清洗
-    custom_trans = str.maketrans({";": ",", "“": '', "”": '', "‘": "'", "’": "'"})
-
     def is_chinese_char(c):
         return "\u3100" <= c <= "\u9fff"
 
@@ -177,7 +174,6 @@ def convert_char_to_pinyin_sovits_f5(text_list, polyphone=True, f5_vocab=None):
             if symbol in raw_text:
                 # 替换为逗号进入中文处理流程
                 processed_text = raw_text.replace(symbol, ",")
-                processed_text = processed_text.translate(custom_trans).strip()
                 process_zh_block(processed_text, char_list, special_token=token)
                 special_hit = True
                 break
@@ -187,7 +183,6 @@ def convert_char_to_pinyin_sovits_f5(text_list, polyphone=True, f5_vocab=None):
             continue
 
         # [逻辑分支 B] 常规多语种切分模式 (inference_webui.py 核心逻辑)
-        raw_text = raw_text.translate(custom_trans).strip()
         segments = LangSegmenter.getTexts(raw_text)
         print("segments:", segments)
         for seg in segments:
