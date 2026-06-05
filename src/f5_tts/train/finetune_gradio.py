@@ -822,9 +822,9 @@ def create_metadata(name_project, ch_tokenizer, ch_use_adma_prepare, progress=gr
     new_vocal = ""
     if not ch_tokenizer:
         if not os.path.isfile(file_vocab):
-            file_vocab_finetune = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/vocab.txt"))
+            file_vocab_finetune = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt"))
             if not os.path.isfile(file_vocab_finetune):
-                return "Error: Vocabulary file 'OpenF5-TTS-Base' not found!", ""
+                return "Error: Vocabulary file 'F5-TTS-Base' not found!", ""
             shutil.copy2(file_vocab_finetune, file_vocab)
             # comply with official vocab file, ends with \n
             content = open(file_vocab, "r", encoding="utf-8-sig").read()
@@ -1032,7 +1032,7 @@ def vocab_extend(project_name, symbols, model_type, vocab_tokenizer, vocab_pretr
     if vocab_tokenizer:
         file_vocab = vocab_tokenizer
     else:
-        file_vocab = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/vocab.txt"))
+        file_vocab = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt"))
     if not os.path.isfile(file_vocab):
         return f"the file {file_vocab} not found !"
 
@@ -1069,7 +1069,7 @@ def vocab_extend(project_name, symbols, model_type, vocab_tokenizer, vocab_pretr
         ckpt_path = vocab_pretrain
     else:
         if model_type == "F5TTS_v1_Base":
-            ckpt_path = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/model.pt"))
+            ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model.pt"))
 
     vocab_size_new = len(miss_symbols)
 
@@ -1094,7 +1094,7 @@ def vocab_check(project_name, tokenizer_type, vocab_tokenizer_text):
     if vocab_tokenizer_text:
         file_vocab = vocab_tokenizer_text
     else:
-        file_vocab = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/vocab.txt"))
+        file_vocab = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt"))
     if not os.path.isfile(file_vocab):
         return f"the file {file_vocab} not found !", ""
 

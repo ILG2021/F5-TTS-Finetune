@@ -24,7 +24,7 @@ from tqdm import tqdm
 from f5_tts.model.utils import convert_char_to_pinyin
 
 
-PRETRAINED_VOCAB_PATH = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/vocab.txt"))
+PRETRAINED_VOCAB_PATH = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt"))
 
 
 def is_csv_wavs_format(input_dataset_dir):

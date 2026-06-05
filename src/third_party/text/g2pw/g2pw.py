@@ -132,7 +132,7 @@ def read_dict():
             value = eval(value_str.strip())
             polyphonic_dict[key.strip()] = value
             line = f.readline()
-    pypinyin_dict_file = str(files("f5_tts").joinpath(f"dicts/pypinyin.txt"))
+    pypinyin_dict_file = str(files("f5_tts").joinpath(f"dicts/g2pw.txt"))
     if os.path.exists(pypinyin_dict_file):
         for line in open(pypinyin_dict_file, "r", encoding="utf-8").read().split("\n"):
             if "#" in line:

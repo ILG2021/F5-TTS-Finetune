@@ -305,7 +305,7 @@ if model != "F5TTS_Base":
 # override for previous models
 
 if not ckpt_file:
-    ckpt_file = str(cached_path("hf://mrfakename/OpenF5-TTS-Base/vocab.txt"))
+    ckpt_file = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt"))
 
 print(f"Using {model}...")
 ema_model = load_model(
