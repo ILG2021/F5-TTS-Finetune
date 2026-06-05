@@ -1069,7 +1069,7 @@ def vocab_extend(project_name, symbols, model_type, vocab_tokenizer, vocab_pretr
         ckpt_path = vocab_pretrain
     else:
         if model_type == "F5TTS_v1_Base":
-            ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model.pt"))
+            ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
 
     vocab_size_new = len(miss_symbols)
 

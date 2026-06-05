@@ -117,7 +117,7 @@ def main():
             if args.pretrain is None:
                 pretrains = list(Path(checkpoint_path).glob("pretrained_*"))
                 if not pretrains or len(pretrains) == 0:
-                    ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model.pt"))
+                    ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
                 else:
                     ckpt_path = os.path.join(checkpoint_path, pretrains[0])
             else:
