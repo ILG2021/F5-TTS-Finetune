@@ -792,7 +792,7 @@ def create_metadata(name_project, ch_tokenizer, ch_use_adma_prepare, progress=gr
 
         text = text.strip()
         if pinyin:
-            text = pinyin
+            text = json.loads(pinyin)
         else:
             text = convert_char_to_pinyin([text], polyphone=True)[0]
 
