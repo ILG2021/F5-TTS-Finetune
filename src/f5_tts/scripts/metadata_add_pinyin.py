@@ -66,11 +66,15 @@ def process_metadata(input_file, output_file, force=False):
 
             try:
                 # 调用转换函数
-                pinyin_arrays = convert_char_to_pinyin_sovits_f5([text])
-                if pinyin_arrays:
-                    pinyin_json = json.dumps(pinyin_arrays[0], ensure_ascii=False)
-                    f_out.write(f"{item_id}|{text}|{pinyin_json}\n")
+                if len(parts) == 3: # 已经转换过的
+                    f_out.write(f"{line}\n")
                     f_out.flush()
+                else:
+                    pinyin_arrays = convert_char_to_pinyin_sovits_f5([text])
+                    if pinyin_arrays:
+                        pinyin_json = json.dumps(pinyin_arrays[0], ensure_ascii=False)
+                        f_out.write(f"{item_id}|{text}|{pinyin_json}\n")
+                        f_out.flush()
             except Exception as e:
                 print(f"\n[Error] ID: {item_id}, Msg: {e}")
                 continue
